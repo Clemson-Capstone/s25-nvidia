@@ -1,1 +1,1 @@
-# f25-nvidia
+# s25-nvidia
