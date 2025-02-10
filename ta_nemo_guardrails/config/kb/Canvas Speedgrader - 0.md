@@ -1,0 +1,4 @@
+# Canvas Speedgrader - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><div style="overflow: hidden;" title="embedded content">Watch the following video:</div>
+<div style="overflow: hidden;" title="embedded content"><iframe class="video-page-iframe" title="311 - Speedgrader™ Overview (Instructors)" src="https://community.instructuremedia.com/embed/99df9da3-9906-4975-8c01-07ca1b9e4194" width="560px" height="320px" allowfullscreen="allowfullscreen" allow="autoplay *" data-mce-fragment="1"></iframe></div>

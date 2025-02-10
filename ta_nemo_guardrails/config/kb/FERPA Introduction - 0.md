@@ -1,0 +1,3 @@
+# FERPA Introduction - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>FERPA is an important privacy law that educational institutions must abide by. As a TA, it is important for you to learn about FERPA as you are bound to its regulations since you deal with student assignments and grading. It can be a confusing topic, but it should become more clear to you as you read the following articles on what FERPA restricts.&nbsp;</p>

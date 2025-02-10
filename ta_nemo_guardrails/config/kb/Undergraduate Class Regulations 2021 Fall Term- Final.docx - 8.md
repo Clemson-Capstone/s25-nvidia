@@ -1,0 +1,5 @@
+# Undergraduate Class Regulations 2021 Fall Term- Final.docx - 8
+
+Election DatesParagraph 97
+U.S. local elections are facilitated through state and county municipalities. Students attending college may register to vote at their local campus addresses or choose to remain registered or register at their permanent or home address. The nonpartisan Campus Vote Project has compiled information for all students on state-by-state voter registration: https://www.campusvoteproject.org/state-student-voting-guides.Paragraph 99
+Faculty and instructors of record may wish to inform students of these deadlines and may wish to incorporate nonpartisan voter education assignments into their courses. The ClemsonVotes coalition will be providing ideas and resources for faculty and instructors via the Clemson Teaching Listserv throughout the semester.

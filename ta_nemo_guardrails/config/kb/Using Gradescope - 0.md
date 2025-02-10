@@ -1,0 +1,6 @@
+# Using Gradescope - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>Please watch the following videos:</p>
+<p><iframe title="YouTube video player" src="https://www.youtube.com/embed/nJp_NN1oFcw?si=Iw_YDU_TlLaeKc-W" width="560" height="315" allowfullscreen="allowfullscreen" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe><iframe title="YouTube video player" src="https://www.youtube.com/embed/12ySmTBH3pY?si=BU-hRGZad1FHA1H5" width="560" height="315" allowfullscreen="allowfullscreen" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></p>
+<p><iframe title="YouTube video player" src="https://www.youtube.com/embed/va5ZQX7XrC0?si=kkr6g7N1gb-w_5Vv" width="560" height="315" allowfullscreen="allowfullscreen" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></p>
+<p><iframe title="YouTube video player" src="https://www.youtube.com/embed/RxZxBeIp3sc?si=z38eWvefkw5_8GiN" width="560" height="315" allowfullscreen="allowfullscreen" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"></iframe></p>

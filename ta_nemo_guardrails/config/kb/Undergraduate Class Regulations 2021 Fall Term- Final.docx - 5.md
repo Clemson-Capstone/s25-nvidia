@@ -1,0 +1,9 @@
+# Undergraduate Class Regulations 2021 Fall Term- Final.docx - 5
+
+Last Week of ClassesParagraph 63
+No examinations, other than laboratory examinations, are permitted on the last two class days (December 2-3, 2021).Paragraph 65
+Final Examinations/AssessmentsParagraph 66
+At their own discretion, instructors may excuse from the final examination all students having the grade A on the coursework prior to the final examination.  For all other students, examinations are required in all subjects at the end of each semester, except in courses in which final examinations are not deemed necessary as approved by the department faculty.Paragraph 68
+Final assessments are not limited to traditional exam formats, but can take the form of projects, papers, reflections, discussions, presentations, etc. Final examinations must be given (or due) on the dates and at the times designated in the final examination schedule, except in laboratory and one-credit-hour courses where the final exam will be given at the last class meeting. All courses that do not specify a standard day of the week and meeting time are not assigned a final exam date and time, and the final exam must be given during the examination week at a date and time announced by the instructor. This time must be stipulated in the syllabus at the beginning of the term.Paragraph 70
+Circumventing the designated date/time for a final examination via consenting signatures from students for a different date/time, though freely agreed to, is a violation of the final examination policy.  Students are to be given the entire length of the final exam period (2.5 hours) to complete their work, even if the final exam is designed to be completed in less time. This applies to all final examinations with a time limit, including those given online.Paragraph 72
+Retaining ExaminationsParagraph 73

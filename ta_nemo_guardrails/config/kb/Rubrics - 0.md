@@ -1,0 +1,3 @@
+# Rubrics - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>In this module, we will be learning about making rubrics. Rubrics are a big part of your job if you help grade for your class. They help you be consistent in grading across students by checking off certain criteria that is met or unmet. Typically, undergraduate TA's do not create rubrics, but can if reviewed and approved by your lab coordinator. You will be completing an assignment where after reading the undergraduate class regulations, you will be creating a rubric to grade an assigned teacher's syllabus.&nbsp;</p>

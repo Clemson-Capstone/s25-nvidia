@@ -1,0 +1,3 @@
+# More on Gradescope & Canvas Quizzes - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>Gradescope has lots of features to empower teachers and graders and make life easier on them. In this module, we will be going over many of these features on how to speed up grading with keyboard shortcuts and AI assisted grading, as well as grading paper based assignments on Gradescope. We also will be covering Gradescope's Similarity Scores feature for programming assignments and talking about the basics of creating a Canvas quiz.&nbsp;</p>

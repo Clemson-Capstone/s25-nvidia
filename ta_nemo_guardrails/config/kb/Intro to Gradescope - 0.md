@@ -1,0 +1,3 @@
+# Intro to Gradescope - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>In this module, we will introduce you to Gradescope and talk about some of the features it has to offer. You will also complete an assignment where you'll modify code to either pass or fail test cases for our introduction to the autograder next module.</p>

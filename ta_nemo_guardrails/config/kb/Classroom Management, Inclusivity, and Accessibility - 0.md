@@ -1,0 +1,3 @@
+# Classroom Management, Inclusivity, and Accessibility - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>In labs and class, you will be dealing with many different students and should know some techniques for classroom management so that you can keep the class engaged and on task. You also will meet people of many different backgrounds, including those who may feel alienated or outsiders, have an impairment physically, or who may be on the Autism spectrum. We will cover tips for being inclusive and what you can do to help those who may need accessible accommodations.&nbsp;</p>

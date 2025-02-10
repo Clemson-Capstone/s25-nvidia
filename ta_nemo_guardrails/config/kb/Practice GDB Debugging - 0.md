@@ -1,0 +1,4 @@
+# Practice GDB Debugging - 0
+
+<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>Use the attached file to practice debugging with GDB.</p>
+<p><a class="instructure_file_link inline_disabled" title="BuggedLinkedList.cpp" href="https://clemson.instructure.com/courses/241112/files/22619471?verifier=ncIF32TRqXadJrXIVG9KE9y501f57ikJvAWzE2O1&amp;wrap=1" target="_blank" data-api-endpoint="https://clemson.instructure.com/api/v1/courses/241112/files/22619471" data-api-returntype="File">BuggedLinkedList.cpp</a></p>

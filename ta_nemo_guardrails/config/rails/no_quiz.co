@@ -1,0 +1,16 @@
+
+define user ask quiz question
+  "What is the answer to the following multiple choice question"
+  "Choose the correct answer"
+  "Select one of the following options"
+  "What is the correct answer?"
+  "A: B: C: D:"
+  "Which of the following data structures is most suitable for implementing a LIFO (Last In, First Out) ordering?"
+
+define bot refuse no quiz
+  "I'm sorry, but I can't provide answers to quiz or test questions. Let's focus on understanding the concepts together!"
+
+define flow detect quiz question
+  user ask quiz question
+  $qranswer = execute quiz_response()
+  bot $qranswer
