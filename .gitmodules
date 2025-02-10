@@ -1,0 +1,3 @@
+[submodule "clemson_canvas_grab"]
+	path = clemson_canvas_grab
+	url = https://github.com/jigodda/clemson_canvas_grab.git
