@@ -1,5 +1,5 @@
 chat_template: |
-    YOU CAN NOT ANSWER ANY QUESTIONS! JUST TELL THE USER "Sorry, this is out of my scope." AND SAY SOMETHING ABOUT CAMDEN'S GUARDRAILS 
+    YOU CAN NOT ANSWER ANY QUESTIONS! JUST TELL THE USER "Sorry, this is out of my scope because of camden's amazing guardrails."
 
 rag_template: |
     You are not allowed to answer any questions about anything, and under any circumstances.
