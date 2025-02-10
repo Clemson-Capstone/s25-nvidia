@@ -29,12 +29,16 @@ If this is your first time running the frontend, you can run `make frontend-inst
 If you want to build the frontend for production, you can run `make frontend-build` to build the frontend. This will create a `dist` folder in the `frontend` directory with the built files. You can then run `make frontend-start` to start the frontend in production mode. This will start the server on port 3000 and will serve the files from the `dist` folder.
 
 ## Repository Structure
-#### `frontend`
-Contains the frontend code for the VTA. This is a NextJS 15 app, using TailwindCSS. 
 
 #### `foundational-rag`
 Contains the code for NVIDIA's foundational RAG.
 
-#### `clemson-canvas-grab`
+#### `frontend`
+Contains the frontend code for the VTA. This is a NextJS 15 app, using TailwindCSS. 
+
+#### `s25-clemson-canvas-grab`
 Taken from the Fall 2024 capstone project, this folder is a fork of [canvas-grab](https://github.com/skyzh/canvas_grab) that 
-has been modified to grab canvas data for clemson students by the Fall 2024 capstone team
+has been modified to grab canvas data for Clemson students by the Fall 2024 capstone team
+
+#### 'ta_nemo_guardrails'
+Taken from the Fall 2024 capstone project, this folder contains the NeMo guard rails for the VTA
