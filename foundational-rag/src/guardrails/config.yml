@@ -1,0 +1,37 @@
+models:
+  - type: main
+    engine: nim
+    model: meta/llama-3.1-70b-instruct
+
+rails:
+  input:
+    flows:
+      - greeting
+      - course_content
+      - quiz_detection
+      - code_debug
+  output:
+    flows:
+      - greeting
+      - course_content
+      - quiz_detection
+      - code_debug
+
+instructions:
+  - type: general
+    content: |
+      You are a helpful AI assistant that provides accurate information based on the given context.
+      You follow all the guardrails defined in the configuration files carefully.
+
+rails_config:
+  allow_multi_turn: true
+  
+  flows:
+    greeting:
+      enabled: true
+    course_content:
+      enabled: true
+    quiz_detection:
+      enabled: true
+    code_debug:
+      enabled: true

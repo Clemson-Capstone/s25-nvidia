@@ -28,6 +28,7 @@ from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableAssign
 from langchain_core.runnables import RunnablePassthrough
 from requests import ConnectTimeout
+from nemoguardrails import LLMRails, RailsConfig
 
 from .base import BaseExample
 from .server import Message
@@ -56,6 +57,17 @@ try:
 except Exception as ex:
     VECTOR_STORE = None
     logger.info("Unable to connect to vector store during initialization: %s", ex)
+
+# Initialize NeMo Guardrails
+try:
+    rails_config = RailsConfig.from_path(
+        os.path.join(os.path.dirname(__file__), "guardrails")
+    )
+    RAILS = LLMRails(rails_config)
+    logger.info("Successfully initialized NeMo Guardrails")
+except Exception as ex:
+    RAILS = None
+    logger.warning("Failed to initialize NeMo Guardrails: %s", ex)
 
 
 class UnstructuredRAG(BaseExample):
@@ -112,9 +124,46 @@ class UnstructuredRAG(BaseExample):
                 raise ValueError(
                     "Please verify the API endpoint and your payload. Ensure that the embedding model name is valid.") from e
 
-
             raise ValueError(f"Failed to upload document. {str(e)}") from e
-
+    def _apply_guardrails(self, response: str, messages: List[tuple]) -> str:
+        """Apply guardrails to the generated response."""
+        try:
+            if RAILS is None:
+                logger.warning("Guardrails not initialized, returning original response")
+                return response
+                
+            user_message = ""
+            for role, content in reversed(messages):
+                if role == "user":
+                    user_message = content
+                    break
+            
+            if not user_message:
+                logger.warning("No user message found in conversation")
+                return response
+                
+            # Generate response with guardrails
+            guarded_response = RAILS.generate(user_message)
+            
+            logger.info(f"Guardrails response: {guarded_response}")  # Add this debug log
+            
+            # Handle different response types
+            if isinstance(guarded_response, dict):
+                if 'response' in guarded_response:
+                    return guarded_response['response']
+                if 'content' in guarded_response:
+                    return guarded_response['content']
+            elif isinstance(guarded_response, str):
+                return guarded_response
+                
+            # If no guardrail response, use original
+            logger.info("No specific guardrail triggered, using original response")
+            return response
+                
+        except Exception as ex:
+            logger.warning("Failed to apply guardrails: %s", ex)
+            return response
+    
     def llm_chain(self, query: str, chat_history: List["Message"], **kwargs) -> Generator[str, None, None]:
         """Execute a simple LLM chain using the components defined above.
         It's called when the `/generate` API is invoked with `use_knowledge_base` set to `False`.
@@ -122,7 +171,7 @@ class UnstructuredRAG(BaseExample):
         Args:
             query (str): Query to be answered by llm.
             chat_history (List[Message]): Conversation history between user and chain.
-            kwargs: ?
+            kwargs: Additional keyword arguments for the LLM
         """
 
         logger.info("Using llm to generate response directly without knowledge base.")
@@ -134,7 +183,7 @@ class UnstructuredRAG(BaseExample):
         system_prompt += prompts.get("chat_template", "")
 
         for message in chat_history:
-            if message.role ==  "system":
+            if message.role == "system":
                 system_prompt = system_prompt + " " + message.content
             else:
                 conversation_history.append((message.role, message.content))
@@ -147,24 +196,27 @@ class UnstructuredRAG(BaseExample):
 
         # Prompt template with system message, conversation history and user query
         message = system_message + conversation_history + user_message
-
         self.print_conversation_history(message, query)
 
         prompt_template = ChatPromptTemplate.from_messages(message)
-
         llm = get_llm(**kwargs)
-
-        # Simple langchain chain to generate response based on user's query
+        
+        # Get the raw response
         chain = prompt_template | llm | StrOutputParser()
-        return chain.stream({"question": f"{query}"})
+        raw_response = ""
+        for chunk in chain.stream({"question": f"{query}"}):
+            raw_response += chunk
 
-    def rag_chain(  # pylint: disable=arguments-differ
-            self,
-            query: str,
-            chat_history: List["Message"],
-            top_n: int,
-            collection_name: str = "",
-            **kwargs) -> Generator[str, None, None]:
+        # Apply guardrails to the complete response
+        guarded_response = self._apply_guardrails(raw_response, message)
+        
+        # Stream the guarded response (now we know it's a string)
+        if guarded_response:
+            for chunk in guarded_response.strip().split():
+                yield chunk + " "
+
+    def rag_chain(self, query: str, chat_history: List["Message"], top_n: int, 
+                 collection_name: str = "", **kwargs) -> Generator[str, None, None]:
         """Execute a Retrieval Augmented Generation chain using the components defined above.
         It's called when the `/generate` API is invoked with `use_knowledge_base` set to `True`.
 
@@ -173,37 +225,37 @@ class UnstructuredRAG(BaseExample):
             chat_history (List[Message]): Conversation history between user and chain.
             top_n (int): Fetch n document to generate.
             collection_name (str): Name of the collection to be searched from vectorstore.
-            kwargs: ?
+            kwargs: Additional keyword arguments for the LLM
         """
 
         if os.environ.get("ENABLE_MULTITURN", "false").lower() == "true":
             return self.rag_chain_with_multiturn(query, chat_history, top_n, collection_name, **kwargs)
+            
         logger.info("Using rag to generate response from document for the query: %s", query)
 
         try:
             vs = get_vectorstore(VECTOR_STORE, document_embedder, collection_name)
             if vs is None:
-                logger.error("Vector store not initialized properly. Please check if the vector db is up and running")
+                logger.error("Vector store not initialized properly")
                 raise ValueError()
 
             llm = get_llm(**kwargs)
             top_k = vector_db_top_k if ranker else top_n
             logger.info("Setting retriever top k as: %s.", top_k)
-            retriever = vs.as_retriever(search_kwargs={"k": top_k})  # milvus does not support similarily threshold
+            retriever = vs.as_retriever(search_kwargs={"k": top_k})
 
             system_prompt = ""
             conversation_history = []
             system_prompt += prompts.get("rag_template", "")
 
             for message in chat_history:
-                if message.role ==  "system":
+                if message.role == "system":
                     system_prompt = system_prompt + " " + message.content
 
             system_message = [("system", system_prompt)]
             user_message = [("user", "{question}")]
-
-            # Prompt template with system message, conversation history and user query
             message = system_message + conversation_history + user_message
+            
             self.print_conversation_history(message)
             prompt = ChatPromptTemplate.from_messages(message)
 
@@ -216,38 +268,55 @@ class UnstructuredRAG(BaseExample):
                 logger.info("Setting ranker top n as: %s.", top_n)
                 ranker.top_n = top_n
                 reranker = RunnableAssign({
-                    "context":
-                        lambda input: ranker.compress_documents(query=input['question'], documents=input['context'])
+                    "context": lambda input: ranker.compress_documents(
+                        query=input['question'], 
+                        documents=input['context']
+                    )
                 })
 
-                # Create a chain with retriever and reranker
                 retriever = {"context": retriever, "question": RunnablePassthrough()} | reranker
                 docs = retriever.invoke(query)
-
-                # Remove metadata from context
                 docs = [d.page_content for d in docs.get("context", [])]
-
-                logger.debug("Document Retrieved: %s", docs)
-                chain = prompt | llm | StrOutputParser()
             else:
                 docs = retriever.invoke(query)
                 docs = [d.page_content for d in docs]
-                chain = prompt | llm | StrOutputParser()
-            return chain.stream({"question": query, "context": docs})
+
+            chain = prompt | llm | StrOutputParser()
+            raw_response = ""
+            for chunk in chain.stream({"question": query, "context": docs}):
+                raw_response += chunk
+
+            # Apply guardrails to the complete response
+            guarded_response = self._apply_guardrails(raw_response, message)
+            
+            # Stream the guarded response
+            for chunk in guarded_response.split():
+                yield chunk + " "
+
+        except ConnectTimeout as e:
+            logger.warning("Connection timed out while making a request to the LLM endpoint: %s", e)
+            yield "Connection timed out while making a request to the NIM endpoint. Verify if the NIM server is available."
+
         except Exception as e:
-            logger.warning("Failed to generate response due to exception %s", e)
+            logger.warning("Failed to generate response: %s", e)
             print_exc()
-        logger.warning("No response generated from LLM, make sure you've ingested document.")
-        return iter(
-            ["No response generated from LLM, make sure you have ingested document from the Knowledge Base Tab."])
+
+            if "[403] Forbidden" in str(e) and "Invalid UAM response" in str(e):
+                logger.warning("Authentication or permission error: Verify the validity and permissions of your NVIDIA API key.")
+                yield "Authentication or permission error: Verify the validity and permissions of your NVIDIA API key."
+            elif "[404] Not Found" in str(e):
+                logger.warning("Please verify the API endpoint and your payload. Ensure that the model name is valid.")
+                yield "Please verify the API endpoint and your payload. Ensure that the model name is valid."
+            else:
+                yield "Failed to generate response. Please ensure documents are ingested and try again."
 
     def rag_chain_with_multiturn(self,
-                                 query: str,
-                                 chat_history: List["Message"],
-                                 top_n: int,
-                                 collection_name: str,
-                                 **kwargs) -> Generator[str, None, None]:
-        """Execute a Retrieval Augmented Generation chain using the components defined above."""
+                                query: str,
+                                chat_history: List["Message"],
+                                top_n: int,
+                                collection_name: str,
+                                **kwargs) -> Generator[str, None, None]:
+        """Execute a Retrieval Augmented Generation chain with multi-turn support."""
 
         logger.info("Using multiturn rag to generate response from document for the query: %s", query)
 
@@ -260,7 +329,7 @@ class UnstructuredRAG(BaseExample):
             llm = get_llm(**kwargs)
             top_k = vector_db_top_k if ranker else top_n
             logger.info("Setting retriever top k as: %s.", top_k)
-            retriever = vs.as_retriever(search_kwargs={"k": top_k})  # milvus does not support similarily threshold
+            retriever = vs.as_retriever(search_kwargs={"k": top_k})
 
             # conversation is tuple so it should be multiple of two
             # -1 is to keep last k conversation
@@ -271,13 +340,14 @@ class UnstructuredRAG(BaseExample):
             system_prompt += prompts.get("rag_template", "")
 
             for message in chat_history:
-                if message.role ==  "system":
+                if message.role == "system":
                     system_prompt = system_prompt + " " + message.content
                 else:
                     conversation_history.append((message.role, message.content))
 
             system_message = [("system", system_prompt)]
             retriever_query = query
+            
             if os.environ.get("ENABLE_QUERYREWRITER", "false").lower() == "true":
                 # Based on conversation history recreate query for better document retrieval
                 contextualize_q_system_prompt = (
@@ -323,17 +393,25 @@ class UnstructuredRAG(BaseExample):
                 retriever = {"context": retriever, "question": RunnablePassthrough()} | context_reranker
                 docs = retriever.invoke(retriever_query)
                 docs = [d.page_content for d in docs.get("context", [])]
-                chain = prompt | llm | StrOutputParser()
             else:
                 docs = retriever.invoke(retriever_query)
                 docs = [d.page_content for d in docs]
-                chain = prompt | llm | StrOutputParser()
-            return chain.stream({"question": f"{query}", "context": docs})
+
+            chain = prompt | llm | StrOutputParser()
+            raw_response = ""
+            for chunk in chain.stream({"question": f"{query}", "context": docs}):
+                raw_response += chunk
+
+            # Apply guardrails to the complete response
+            guarded_response = self._apply_guardrails(raw_response, message)
+            
+            # Stream the guarded response
+            for chunk in guarded_response.split():
+                yield chunk + " "
 
         except ConnectTimeout as e:
             logger.warning("Connection timed out while making a request to the LLM endpoint: %s", e)
-            return iter(
-                    ["Connection timed out while making a request to the NIM endpoint. Verify if the NIM server is available."])
+            yield "Connection timed out while making a request to the NIM endpoint. Verify if the NIM server is available."
 
         except Exception as e:
             logger.warning("Failed to generate response due to exception %s", e)
@@ -341,17 +419,12 @@ class UnstructuredRAG(BaseExample):
 
             if "[403] Forbidden" in str(e) and "Invalid UAM response" in str(e):
                 logger.warning("Authentication or permission error: Verify the validity and permissions of your NVIDIA API key.")
-                return iter(
-                    ["Authentication or permission error: Verify the validity and permissions of your NVIDIA API key."])
-            if "[404] Not Found" in str(e):
+                yield "Authentication or permission error: Verify the validity and permissions of your NVIDIA API key."
+            elif "[404] Not Found" in str(e):
                 logger.warning("Please verify the API endpoint and your payload. Ensure that the model name is valid.")
-                return iter(
-                    ["Please verify the API endpoint and your payload. Ensure that the model name is valid."])
-
-        # Fallback response
-        logger.warning("No response generated from LLM, make sure you've ingested document.")
-        return iter(
-            ["No response generated from LLM, make sure you have ingested document from the Knowledge Base Tab."])
+                yield "Please verify the API endpoint and your payload. Ensure that the model name is valid."
+            else:
+                yield "No response generated from LLM, make sure you have ingested document from the Knowledge Base Tab."
 
     def document_search(self, content: str, num_docs: int, collection_name: str = "") -> List[Dict[str, Any]]:
         """Search for the most relevant documents for the given search parameters.
@@ -375,7 +448,7 @@ class UnstructuredRAG(BaseExample):
             local_ranker = get_ranking_model()
             top_k = vector_db_top_k if local_ranker else num_docs
             logger.info("Setting top k as: %s.", top_k)
-            retriever = vs.as_retriever(search_kwargs={"k": top_k})  # milvus does not support similarily threshold
+            retriever = vs.as_retriever(search_kwargs={"k": top_k})
 
             if local_ranker:
                 logger.info(
@@ -390,7 +463,7 @@ class UnstructuredRAG(BaseExample):
                 context_reranker = RunnableAssign({
                     "context":
                         lambda input: local_ranker.compress_documents(query=input['question'],
-                                                                      documents=input['context'])
+                                                                    documents=input['context'])
                 })
 
                 retriever = {"context": retriever, "question": RunnablePassthrough()} | context_reranker
@@ -454,6 +527,7 @@ class UnstructuredRAG(BaseExample):
         return False
 
     def print_conversation_history(self, conversation_history: List[str] = None, query: str | None = None):
+        """Print conversation history for debugging purposes."""
         if conversation_history is not None:
             for role, content in conversation_history:
                 logger.info("Role: %s", role)
