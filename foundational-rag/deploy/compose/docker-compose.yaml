@@ -1,19 +1,16 @@
 include:
-  - path:
-      - ./vectordb.yaml
-      - ./nims.yaml
+  - path: ./vectordb.yaml
+  - path: ./nims.yaml
 
 services:
   rag-server:
     container_name: rag-server
     image: nvcr.io/nvidia/blueprint/rag-server:${TAG:-1.0.0}
     build:
-      context: ../../
+      context: ../..
       dockerfile: src/Dockerfile
     command: --port 8081 --host 0.0.0.0 --workers 8
-
     environment:
-      # Existing configurations remain the same
       EXAMPLE_PATH: 'src/'
       APP_VECTORSTORE_URL: "http://milvus:19530"
       APP_VECTORSTORE_NAME: "milvus"
@@ -35,18 +32,14 @@ services:
       ENABLE_MULTITURN: ${ENABLE_MULTITURN:-true}
       ENABLE_QUERYREWRITER: ${ENABLE_QUERYREWRITER:-true}
       CONVERSATION_HISTORY: 5
-
-      # New Guardrails configurations
       ENABLE_GUARDRAILS: ${ENABLE_GUARDRAILS:-true}
       GUARDRAILS_CONFIG_PATH: /app/src/guardrails
       GUARDRAILS_TEMPERATURE: ${GUARDRAILS_TEMPERATURE:-0.2}
-
     ports:
       - "8081:8081"
     expose:
       - "8081"
     volumes:
-      # Add guardrails directory mount
       - ../../src:/app/src
       - ../../src/guardrails:/app/src/guardrails:ro
     shm_size: 5gb
@@ -58,12 +51,11 @@ services:
         condition: service_healthy
         required: false
 
-  # Rest of the services remain unchanged
   rag-playground:
     container_name: rag-playground
     image: nvcr.io/nvidia/blueprint/rag-playground:${TAG:-1.0.0}
     build:
-      context: ../../
+      context: ../..
       dockerfile: ./frontend/Dockerfile
     command: --port 8090
     environment:

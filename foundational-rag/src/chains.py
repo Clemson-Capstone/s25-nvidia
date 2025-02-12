@@ -60,14 +60,24 @@ except Exception as ex:
 
 # Initialize NeMo Guardrails
 try:
-    rails_config = RailsConfig.from_path(
-        os.path.join(os.path.dirname(__file__), "guardrails")
-    )
+    guardrails_path = os.environ.get("GUARDRAILS_CONFIG_PATH", 
+                                   os.path.join(os.path.dirname(__file__), "guardrails"))
+    # Configure rails with the path that contains:
+    # - config.yml
+    # - rails/code_debug.co, no_quiz.co, ta.co
+    rails_config = RailsConfig.from_path(guardrails_path)
+    
+    # Initialize rails without llm_params as it's not supported
     RAILS = LLMRails(rails_config)
-    logger.info("Successfully initialized NeMo Guardrails")
+    
+    # After initialization, we can set the temperature if needed
+    if 'temperature' in os.environ:
+        RAILS.llm.temperature = float(os.environ.get("GUARDRAILS_TEMPERATURE", 0.2))
+        
+    logger.info(f"Successfully initialized NeMo Guardrails from path: {guardrails_path}")
 except Exception as ex:
     RAILS = None
-    logger.warning("Failed to initialize NeMo Guardrails: %s", ex)
+    logger.warning(f"Failed to initialize NeMo Guardrails: {ex}")
 
 
 class UnstructuredRAG(BaseExample):
@@ -125,6 +135,7 @@ class UnstructuredRAG(BaseExample):
                     "Please verify the API endpoint and your payload. Ensure that the embedding model name is valid.") from e
 
             raise ValueError(f"Failed to upload document. {str(e)}") from e
+    
     def _apply_guardrails(self, response: str, messages: List[tuple]) -> str:
         """Apply guardrails to the generated response."""
         try:
@@ -132,6 +143,7 @@ class UnstructuredRAG(BaseExample):
                 logger.warning("Guardrails not initialized, returning original response")
                 return response
                 
+            # Find the last user message
             user_message = ""
             for role, content in reversed(messages):
                 if role == "user":
@@ -142,45 +154,44 @@ class UnstructuredRAG(BaseExample):
                 logger.warning("No user message found in conversation")
                 return response
                 
-            # Generate response with guardrails
-            guarded_response = RAILS.generate(user_message)
+            # Generate response with guardrails - use proper message format
+            formatted_messages = [{
+                "role": "user",
+                "content": user_message
+            }]
+            guarded_response = RAILS.generate(messages=formatted_messages)
             
-            logger.info(f"Guardrails response: {guarded_response}")  # Add this debug log
+            logger.info(f"Guardrails response: {guarded_response}")
             
-            # Handle different response types
+            # Handle the response
             if isinstance(guarded_response, dict):
-                if 'response' in guarded_response:
-                    return guarded_response['response']
-                if 'content' in guarded_response:
-                    return guarded_response['content']
+                bot_message = guarded_response.get('bot_message')
+                if bot_message:
+                    return bot_message
+                content = guarded_response.get('content')
+                if content:
+                    return content
+                response = guarded_response.get('response')
+                if response:
+                    return response
             elif isinstance(guarded_response, str):
                 return guarded_response
-                
-            # If no guardrail response, use original
+            
+            # If no specific response from guardrails, use the original
             logger.info("No specific guardrail triggered, using original response")
             return response
                 
         except Exception as ex:
-            logger.warning("Failed to apply guardrails: %s", ex)
+            logger.warning(f"Failed to apply guardrails: {ex}")
             return response
-    
+
+   
     def llm_chain(self, query: str, chat_history: List["Message"], **kwargs) -> Generator[str, None, None]:
-        """Execute a simple LLM chain using the components defined above.
-        It's called when the `/generate` API is invoked with `use_knowledge_base` set to `False`.
-
-        Args:
-            query (str): Query to be answered by llm.
-            chat_history (List[Message]): Conversation history between user and chain.
-            kwargs: Additional keyword arguments for the LLM
-        """
-
+        """Execute a simple LLM chain using the components defined above."""
         logger.info("Using llm to generate response directly without knowledge base.")
         system_message = []
         conversation_history = []
-        user_message = []
-        system_prompt = ""
-
-        system_prompt += prompts.get("chat_template", "")
+        system_prompt = prompts.get("chat_template", "")
 
         for message in chat_history:
             if message.role == "system":
@@ -189,14 +200,11 @@ class UnstructuredRAG(BaseExample):
                 conversation_history.append((message.role, message.content))
 
         system_message = [("system", system_prompt)]
-
-        logger.info("Query is: %s", query)
-        if query is not None and query != "":
-            user_message = [("user", "{question}")]
+        user_message = [("user", query)]  # Changed from {question} to direct query
 
         # Prompt template with system message, conversation history and user query
         message = system_message + conversation_history + user_message
-        self.print_conversation_history(message, query)
+        self.print_conversation_history(message)
 
         prompt_template = ChatPromptTemplate.from_messages(message)
         llm = get_llm(**kwargs)
@@ -204,13 +212,13 @@ class UnstructuredRAG(BaseExample):
         # Get the raw response
         chain = prompt_template | llm | StrOutputParser()
         raw_response = ""
-        for chunk in chain.stream({"question": f"{query}"}):
+        for chunk in chain.stream({"question": query}):  # Pass query directly
             raw_response += chunk
 
         # Apply guardrails to the complete response
         guarded_response = self._apply_guardrails(raw_response, message)
         
-        # Stream the guarded response (now we know it's a string)
+        # Stream the guarded response
         if guarded_response:
             for chunk in guarded_response.strip().split():
                 yield chunk + " "
