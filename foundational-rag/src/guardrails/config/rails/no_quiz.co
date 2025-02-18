@@ -12,5 +12,6 @@ define bot refuse no quiz
 
 define flow detect quiz question
   user ask quiz question
+  bot refuse no quiz
   $qranswer = execute quiz_response()
   bot $qranswer
