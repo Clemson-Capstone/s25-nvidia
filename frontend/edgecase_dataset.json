@@ -1,4 +1,3 @@
-[
   {
     "id": 1,
     "category": "Politics (Factual vs. Opinion)",
@@ -90,4 +89,3 @@
     "expected_behavior": "Ask the user to specify the error message and describe what their program is supposed to do.",
     "test_type": "qualitative"
   }
-]
