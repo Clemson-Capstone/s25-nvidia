@@ -29,6 +29,7 @@ from langchain_core.runnables import RunnableAssign
 from langchain_core.runnables import RunnablePassthrough
 from requests import ConnectTimeout
 from nemoguardrails import LLMRails, RailsConfig
+from nemoguardrails.actions import action
 
 from .base import BaseExample
 from .server import Message
@@ -43,7 +44,12 @@ from .utils import get_ranking_model
 from .utils import get_text_splitter
 from .utils import get_vectorstore
 
+#something new
+from .actions import quiz_response  
+
 logger = logging.getLogger(__name__)
+
+
 VECTOR_STORE_PATH = "vectorstore.pkl"
 document_embedder = get_embedding_model()
 ranker = get_ranking_model()
@@ -60,25 +66,58 @@ except Exception as ex:
 
 # Initialize NeMo Guardrails
 try:
-    guardrails_path = os.environ.get("GUARDRAILS_CONFIG_PATH", 
-                                   os.path.join(os.path.dirname(__file__), "guardrails"))
-    # Configure rails with the path that contains:
-    # - config.yml
-    # - rails/code_debug.co, no_quiz.co, ta.co
+    guardrails_path = os.environ.get(
+        "GUARDRAILS_CONFIG_PATH",
+        os.path.join(os.path.dirname(__file__), "guardrails", "config", "rails")
+    )
     rails_config = RailsConfig.from_path(guardrails_path)
-    
+    logger.info(f"Computed guardrails_path: {guardrails_path}")
+    print(f"DEBUG: Computed guardrails_path: {guardrails_path}")
+        
     # Initialize rails without llm_params as it's not supported
     RAILS = LLMRails(rails_config)
+
+    RAILS.register_action(quiz_response, "quiz_response")
     
+    logger.info("Successfully initialized NeMo Guardrails and registered quiz_response")
+    # RAILS.register_action(retrieve_relevant_chunks, "retrieve_relevant_chunks")
     # After initialization, we can set the temperature if needed
     if 'temperature' in os.environ:
         RAILS.llm.temperature = float(os.environ.get("GUARDRAILS_TEMPERATURE", 0.2))
-        
+    
+    logger.info("DEBUG: This is the chains.py file in directory X")
     logger.info(f"Successfully initialized NeMo Guardrails from path: {guardrails_path}")
 except Exception as ex:
     RAILS = None
     logger.warning(f"Failed to initialize NeMo Guardrails: {ex}")
 
+quiz_response_template = """
+Based on the following quiz question, DO NOT provide or hint at the correct answer.
+Instead, explain the underlying concepts to help understanding.
+
+Question: {question}
+
+Concept Explanation (no answers):
+"""
+
+@action(is_system_action=True)
+async def quiz_response(context: dict, llm: BaseLLM):
+    logger.info("QUIZ RESPONSE ACTION TRIGGERED!")
+    try:
+        inputs = context.get("last_user_message")
+        logger.info(f"Processing quiz question: {inputs}")
+        
+        output_parser = StrOutputParser()
+        prompt_template = PromptTemplate.from_template(quiz_response_template)
+        input_variables = {"question": inputs}
+        chain = prompt_template | llm | output_parser
+        answer = await chain.ainvoke(input_variables)
+        
+        logger.info(f"Generated quiz response: {answer}")
+        return "I understand you're asking about: " + answer
+    except Exception as e:
+        logger.error(f"Error in quiz_response: {e}")
+        return "I can help explain the concepts, but I cannot provide direct answers to quiz questions."
 
 class UnstructuredRAG(BaseExample):
 
@@ -159,25 +198,27 @@ class UnstructuredRAG(BaseExample):
                 "role": "user",
                 "content": user_message
             }]
+            logger.info(f"Sending to guardrails: {formatted_messages}")  # Add this log
             guarded_response = RAILS.generate(messages=formatted_messages)
+            logger.info(f"Raw guardrails response: {guarded_response}")  # Add this log
             
-            logger.info(f"Guardrails response: {guarded_response}")
-            
+            # If we get an empty response, return the original
+            if not guarded_response:
+                logger.warning("Empty guardrails response, using original")
+                return response
+                
             # Handle the response
             if isinstance(guarded_response, dict):
-                bot_message = guarded_response.get('bot_message')
-                if bot_message:
-                    return bot_message
-                content = guarded_response.get('content')
-                if content:
-                    return content
-                response = guarded_response.get('response')
-                if response:
-                    return response
-            elif isinstance(guarded_response, str):
+                if 'bot_message' in guarded_response and guarded_response['bot_message'].strip():
+                    return guarded_response['bot_message']
+                if 'content' in guarded_response and guarded_response['content'].strip():
+                    return guarded_response['content']
+                if 'response' in guarded_response and guarded_response['response'].strip():
+                    return guarded_response['response']
+            elif isinstance(guarded_response, str) and guarded_response.strip():
                 return guarded_response
+
             
-            # If no specific response from guardrails, use the original
             logger.info("No specific guardrail triggered, using original response")
             return response
                 
@@ -191,7 +232,11 @@ class UnstructuredRAG(BaseExample):
         logger.info("Using llm to generate response directly without knowledge base.")
         system_message = []
         conversation_history = []
-        system_prompt = prompts.get("chat_template", "")
+
+        # Filter out empty messages and ensure valid content
+        system_prompt = prompts.get("chat_template", "").strip()
+        if not system_prompt:
+            system_prompt = "You are a polite teaching assistant designed to help students learn."
 
         for message in chat_history:
             if message.role == "system":
@@ -206,22 +251,29 @@ class UnstructuredRAG(BaseExample):
         message = system_message + conversation_history + user_message
         self.print_conversation_history(message)
 
-        prompt_template = ChatPromptTemplate.from_messages(message)
-        llm = get_llm(**kwargs)
-        
-        # Get the raw response
-        chain = prompt_template | llm | StrOutputParser()
-        raw_response = ""
-        for chunk in chain.stream({"question": query}):  # Pass query directly
-            raw_response += chunk
+        try:
+            prompt_template = ChatPromptTemplate.from_messages(message)
+            llm = get_llm(**kwargs)
+            
+            # Get the raw response
+            chain = prompt_template | llm | StrOutputParser()
+            raw_response = ""
+            for chunk in chain.stream({"question": query}):
+                raw_response += chunk
 
-        # Apply guardrails to the complete response
-        guarded_response = self._apply_guardrails(raw_response, message)
-        
-        # Stream the guarded response
-        if guarded_response:
-            for chunk in guarded_response.strip().split():
-                yield chunk + " "
+            # Apply guardrails to the complete response
+            guarded_response = self._apply_guardrails(raw_response, message)
+            
+            # Stream the guarded response
+            if guarded_response and guarded_response.strip():
+                for chunk in guarded_response.strip().split():
+                    yield chunk + " "
+            else:
+                yield "I'm here to help. What would you like to know?"
+                
+        except Exception as e:
+            logger.error(f"Error in llm_chain: {e}")
+            yield "I apologize, but I encountered an error. Could you please rephrase your question?"
 
     def rag_chain(self, query: str, chat_history: List["Message"], top_n: int, 
                  collection_name: str = "", **kwargs) -> Generator[str, None, None]:

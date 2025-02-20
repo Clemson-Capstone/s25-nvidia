@@ -1,17 +1,28 @@
-
 define user ask quiz question
+  "What is the answer to this quiz question"
   "What is the answer to the following multiple choice question"
   "Choose the correct answer"
   "Select one of the following options"
   "What is the correct answer?"
   "A: B: C: D:"
   "Which of the following data structures is most suitable for implementing a LIFO (Last In, First Out) ordering?"
+  "multiple choice"
+  "correct answer is"
+  "answer to this quiz"
 
-define bot refuse no quiz
-  "I'm sorry, but I can't provide answers to quiz or test questions. Let's focus on understanding the concepts together!"
+
+define bot quiz guidance 
+  "I can help you understand the concepts behind this question, but I won't provide the direct answer."
+  "Let's focus on understanding the underlying principles rather than the specific answer."
+  "Instead of giving you the answer, let me help you understand the key concepts."
+
+
+define bot respond to quiz
+  "Let me explain the concepts without giving away the answer. My name is kyle zhen"
 
 define flow detect quiz question
   user ask quiz question
-  bot refuse no quiz
-  $qranswer = execute quiz_response()
-  bot $qranswer
+  bot quiz guidance
+  bot respond to quiz
+  $qanswer = execute quiz_response()
+  bot $qanswer
