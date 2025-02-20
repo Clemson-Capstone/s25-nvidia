@@ -55,7 +55,8 @@ export default function ChatPage() {
     if (e) {
       e.preventDefault();
     }
-    handleMessageSubmit(inputMessage);
+
+    if (!inputMessage.trim()) return;
 
     if (useKnowledgeBase && !canvasToken) {
       setError('Canvas access token is required when using knowledge base');
@@ -78,8 +79,6 @@ export default function ChatPage() {
         canvas_token: useKnowledgeBase ? canvasToken : undefined
       };
       
-      console.log('Request body:', requestBody);
-
       const response = await fetch('http://localhost:8081/generate', {
         method: 'POST',
         headers: {
@@ -146,108 +145,9 @@ export default function ChatPage() {
   const handleEdgeCaseSelect = (value) => {
     const selectedCase = edgeCases.find(c => c.id.toString() === value);
     if (selectedCase) {
-      const message = selectedCase.user_input;
-      setInputMessage(message);
-      handleMessageSubmit(message);
+      setInputMessage(selectedCase.user_input);
+      handleSubmit();
     }
-  };
-
-  const handleMessageSubmit = (message) => {
-    if (!message.trim()) return;
-
-    if (useKnowledgeBase && !canvasToken) {
-      setError('Canvas access token is required when using knowledge base');
-      return;
-    }
-
-    const newMessage = { role: 'user', content: message };
-    setMessages(prev => [...prev, newMessage]);
-    setInputMessage('');
-    setIsLoading(true);
-    setError('');
-    setStreamingMessage('');
-
-    let accumulatedMessage = '';
-
-    fetch('http://localhost:8081/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messages: [...messages, newMessage],
-        use_knowledge_base: useKnowledgeBase,
-        canvas_token: useKnowledgeBase ? canvasToken : undefined
-      }),
-    })
-    .then(response => {
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return response.body.getReader();
-    })
-    .then(reader => {
-      const decoder = new TextDecoder();
-
-      function readChunk() {
-        return reader.read().then(({ value, done }) => {
-          if (done) {
-            if (accumulatedMessage) {
-              setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: accumulatedMessage
-              }]);
-              setStreamingMessage('');
-            }
-            return;
-          }
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const jsonData = JSON.parse(line.slice(5));
-                
-                if (jsonData.choices?.[0]?.finish_reason === 'stop') {
-                  if (accumulatedMessage) {
-                    setMessages(prev => [...prev, {
-                      role: 'assistant',
-                      content: accumulatedMessage
-                    }]);
-                    setStreamingMessage('');
-                  }
-                  return;
-                }
-
-                if (jsonData.choices?.[0]?.message?.content) {
-                  const content = jsonData.choices[0].message.content;
-                  accumulatedMessage += content;
-                  setStreamingMessage(accumulatedMessage);
-                }
-              } catch (e) {
-                console.error('Error parsing JSON from chunk:', e);
-                continue;
-              }
-            }
-          }
-
-          return readChunk();
-        });
-      }
-
-      return readChunk();
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      setError(error.message);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error processing your request. Please try again.' 
-      }]);
-    })
-    .finally(() => {
-      setIsLoading(false);
-    });
   };
 
   return (
