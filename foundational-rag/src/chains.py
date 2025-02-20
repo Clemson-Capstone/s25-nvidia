@@ -32,6 +32,7 @@ from nemoguardrails import LLMRails, RailsConfig
 from nemoguardrails.actions import action
 
 from .base import BaseExample
+
 from .server import Message
 from .utils import create_vectorstore_langchain
 from .utils import del_docs_vectorstore_langchain
@@ -44,12 +45,50 @@ from .utils import get_ranking_model
 from .utils import get_text_splitter
 from .utils import get_vectorstore
 
-#something new
-from .actions import quiz_response  
-
 logger = logging.getLogger(__name__)
 
 
+
+# Define the quiz response prompt template
+quiz_response_template = """
+Based on the following quiz question, DO NOT provide or hint at the correct answer.
+Instead, explain the underlying concepts to help understanding.
+
+Question: {question}
+
+Concept Explanation (no answers):
+"""
+
+@action(is_system_action=False)
+async def quiz_response(context: dict, llm: BaseLLM):
+    log.info("QUIZ RESPONSE ACTION TRIGGERED!")
+    try:
+        # Get the quiz question from the context
+        inputs = context.get("last_user_message")
+        log.info(f"Processing quiz question: {inputs}")
+        
+        # Build the prompt chain
+        output_parser = StrOutputParser()
+        prompt_template = PromptTemplate.from_template(quiz_response_template)
+        input_variables = {"question": inputs}
+        chain = prompt_template | llm | output_parser
+        
+        # Invoke the chain to generate a response
+        answer = await chain.ainvoke(input_variables)
+        log.info(f"Generated quiz response: {answer}")
+        
+        # Return an ActionResult with the answer and any context updates (if needed)
+        return ActionResult(
+            return_value="I understand you're asking about: " + answer,
+            context_updates={}
+        )
+    except Exception as e:
+        log.error(f"Error in quiz_response: {e}")
+        return ActionResult(
+            return_value="I can help explain the concepts, but I cannot provide direct answers to quiz questions.",
+            context_updates={}
+        )
+    
 VECTOR_STORE_PATH = "vectorstore.pkl"
 document_embedder = get_embedding_model()
 ranker = get_ranking_model()
@@ -77,8 +116,8 @@ try:
     # Initialize rails without llm_params as it's not supported
     RAILS = LLMRails(rails_config)
 
-    RAILS.register_action(quiz_response, "quiz_response")
     
+    RAILS.register_action(quiz_response, "quiz_response")
     logger.info("Successfully initialized NeMo Guardrails and registered quiz_response")
     # RAILS.register_action(retrieve_relevant_chunks, "retrieve_relevant_chunks")
     # After initialization, we can set the temperature if needed
@@ -91,33 +130,6 @@ except Exception as ex:
     RAILS = None
     logger.warning(f"Failed to initialize NeMo Guardrails: {ex}")
 
-quiz_response_template = """
-Based on the following quiz question, DO NOT provide or hint at the correct answer.
-Instead, explain the underlying concepts to help understanding.
-
-Question: {question}
-
-Concept Explanation (no answers):
-"""
-
-@action(is_system_action=True)
-async def quiz_response(context: dict, llm: BaseLLM):
-    logger.info("QUIZ RESPONSE ACTION TRIGGERED!")
-    try:
-        inputs = context.get("last_user_message")
-        logger.info(f"Processing quiz question: {inputs}")
-        
-        output_parser = StrOutputParser()
-        prompt_template = PromptTemplate.from_template(quiz_response_template)
-        input_variables = {"question": inputs}
-        chain = prompt_template | llm | output_parser
-        answer = await chain.ainvoke(input_variables)
-        
-        logger.info(f"Generated quiz response: {answer}")
-        return "I understand you're asking about: " + answer
-    except Exception as e:
-        logger.error(f"Error in quiz_response: {e}")
-        return "I can help explain the concepts, but I cannot provide direct answers to quiz questions."
 
 class UnstructuredRAG(BaseExample):
 
@@ -594,3 +606,5 @@ class UnstructuredRAG(BaseExample):
                 logger.info("Content: %s\n", content)
         if query is not None:
             logger.info("Query: %s\n", query)
+
+    
