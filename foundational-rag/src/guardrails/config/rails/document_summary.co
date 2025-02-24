@@ -1,0 +1,29 @@
+define user ask document summary
+  "Can you summarize this document"
+  "Summarize these lecture slides"
+  "Give me a summary of"
+  "Can you give me the key points from"
+  "What are the main ideas in"
+  "Provide a summary of"
+  "Can you condense this information"
+  "What's the gist of"
+  "Summarize the important points from"
+  "I need a summary of my notes"
+  "Extract the main concepts from"
+
+define bot document summary guidance
+  "I'll help summarize that document for you."
+  "I'll extract the key points from those lecture slides."
+  "Let me provide a concise summary of that material."
+
+define bot summarizing notification
+  "Retrieving and analyzing the document content..."
+  "Processing the lecture slides to identify key concepts..."
+  "Examining the document to extract the most important information..."
+
+define flow document summarizer
+  user ask document summary
+  bot document summary guidance
+  bot summarizing notification
+  $summary = execute document_summary()
+  bot $summary
