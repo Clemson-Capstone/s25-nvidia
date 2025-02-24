@@ -1,3 +1,0 @@
-# Autograding Best Practices - 0
-
-<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>Read through Gradescope's documentation covering <a class="inline_disabled" title="Link" href="https://gradescope-autograders.readthedocs.io/en/latest/best_practices/" target="_blank">Best Practices for Autograding</a>.</p>

@@ -1,3 +1,0 @@
-# Debugging - 0
-
-<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>Debugging is a very important skill to have in this field. Throughout your time in computer science classes and as a TA, you will be debugging lots of code and knowing the right techniques can save lots of time and you can teach others good techniques as well to save them time and frustration. We will be talking about some debugging stories and how other people went about fixing their issues, and then learn the basics of a debugger. You should also read the linked information on GDB.</p>

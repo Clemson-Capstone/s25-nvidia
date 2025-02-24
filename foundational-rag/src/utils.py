@@ -131,13 +131,14 @@ def create_vectorstore_langchain(document_embedder, collection_name: str = "") -
     config = get_config()
 
     if config.vector_store.name == "milvus":
+        logger.info("Hello your in utils")
         logger.info("Using milvus collection: %s", collection_name)
         if not collection_name:
             collection_name = os.getenv('COLLECTION_NAME', "vector_db")
 
         logger.info("Using milvus collection: %s", collection_name)
         url = urlparse(config.vector_store.url)
-        logger.info("Inedx type for milvus: %s", config.vector_store.index_type)
+        logger.info("hello im kYLEW type for milvus: %s", config.vector_store.index_type)
         vectorstore = Milvus(document_embedder,
                              connection_args={
                                  "host": url.hostname, "port": url.port

@@ -1,3 +1,0 @@
-# Questioning Techniques - 0
-
-<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p>Questions should be very common in lab, both for you to ask in your classes, and for students to ask in the labs you TA. In this module, you will learn about handling student questions you may not know how to answer, as well as learning about effective ways to ask questions to students to help.&nbsp;</p>

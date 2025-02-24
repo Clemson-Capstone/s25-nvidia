@@ -26,8 +26,8 @@ from nemoguardrails import LLMRails
 from nemoguardrails.actions import action
 from nemoguardrails.actions.actions import ActionResult
 from nemoguardrails.llm.taskmanager import LLMTaskManager
-
-
+print("IN Config.py here ")
+exit(1)
 # Define the quiz response prompt template
 quiz_response_template = """
 Based on the following quiz question, DO NOT provide or hint at the correct answer.
@@ -38,7 +38,7 @@ Question: {question}
 Concept Explanation (no answers):
 """
 
-@action(is_system_action=False)
+# @action(is_system_action=True)
 async def quiz_response(context: dict, llm: BaseLLM):
     log.info("QUIZ RESPONSE ACTION TRIGGERED!")
     try:

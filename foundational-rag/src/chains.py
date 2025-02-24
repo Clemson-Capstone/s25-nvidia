@@ -30,6 +30,9 @@ from langchain_core.runnables import RunnablePassthrough
 from requests import ConnectTimeout
 from nemoguardrails import LLMRails, RailsConfig
 from nemoguardrails.actions import action
+from nemoguardrails.actions.actions import ActionResult
+from langchain.prompts import PromptTemplate
+from langchain_core.language_models.llms import BaseLLM
 
 from .base import BaseExample
 
@@ -49,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 
 
-# Define the quiz response prompt template
+# # Define the quiz response prompt template
 quiz_response_template = """
 Based on the following quiz question, DO NOT provide or hint at the correct answer.
 Instead, explain the underlying concepts to help understanding.
@@ -59,13 +62,13 @@ Question: {question}
 Concept Explanation (no answers):
 """
 
-@action(is_system_action=False)
+@action(is_system_action=True)
 async def quiz_response(context: dict, llm: BaseLLM):
-    log.info("QUIZ RESPONSE ACTION TRIGGERED!")
+    logger.info("QUIZ RESPONSE ACTION TRIGGERED!")
     try:
         # Get the quiz question from the context
         inputs = context.get("last_user_message")
-        log.info(f"Processing quiz question: {inputs}")
+        logger.info(f"Processing quiz question: {inputs}")
         
         # Build the prompt chain
         output_parser = StrOutputParser()
@@ -75,7 +78,7 @@ async def quiz_response(context: dict, llm: BaseLLM):
         
         # Invoke the chain to generate a response
         answer = await chain.ainvoke(input_variables)
-        log.info(f"Generated quiz response: {answer}")
+        logger.info(f"Generated quiz response: {answer}")
         
         # Return an ActionResult with the answer and any context updates (if needed)
         return ActionResult(
@@ -83,7 +86,7 @@ async def quiz_response(context: dict, llm: BaseLLM):
             context_updates={}
         )
     except Exception as e:
-        log.error(f"Error in quiz_response: {e}")
+        logger.error(f"Error in quiz_response: {e}")
         return ActionResult(
             return_value="I can help explain the concepts, but I cannot provide direct answers to quiz questions.",
             context_updates={}
@@ -119,7 +122,6 @@ try:
     
     RAILS.register_action(quiz_response, "quiz_response")
     logger.info("Successfully initialized NeMo Guardrails and registered quiz_response")
-    # RAILS.register_action(retrieve_relevant_chunks, "retrieve_relevant_chunks")
     # After initialization, we can set the temperature if needed
     if 'temperature' in os.environ:
         RAILS.llm.temperature = float(os.environ.get("GUARDRAILS_TEMPERATURE", 0.2))

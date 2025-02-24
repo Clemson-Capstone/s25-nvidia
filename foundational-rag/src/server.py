@@ -300,6 +300,7 @@ def import_example() -> None:
 
     # Walk through the directory to find Python files
     for root, _, files in os.walk(file_location):
+        print(files)
         for file in files:
             if not file.endswith(".py") or file == "__init__.py":
                 continue

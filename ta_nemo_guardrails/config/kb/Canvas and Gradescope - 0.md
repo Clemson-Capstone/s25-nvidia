@@ -1,3 +1,0 @@
-# Canvas and Gradescope - 0
-
-<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><p><span>Canvas is the learning management system (LMS) used by Clemson instructors and students. Gradescope is an assignment platform that has lots of features to empower teachers and graders and make life easier on them. In this module, we will be going over both of these platforms to familiarize you with their features and basic workflows.</span></p>

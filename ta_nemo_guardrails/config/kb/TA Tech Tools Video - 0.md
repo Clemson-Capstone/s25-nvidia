@@ -1,3 +1,0 @@
-# TA Tech Tools Video - 0
-
-<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><div style="position: relative; padding-bottom: 56.25%; padding-top: 0px; height: 0; overflow: auto; " title="embedded content"><iframe id="ensembleEmbeddedContent_YsWdmbHjG0G91eSyISV0nQ" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" title="Module 2 - TA Tech Tools" src="https://cdnapisec.kaltura.com/p/4299903/sp/429990300/embedIframeJs/uiconf_id/51027642/partner_id/4299903?iframeembed=true&amp;entry_id=1_3g7vv7yr" allowfullscreen="allowfullscreen" data-mce-fragment="1"></iframe></div>

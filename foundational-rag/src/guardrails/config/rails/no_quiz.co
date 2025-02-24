@@ -18,7 +18,7 @@ define bot quiz guidance
 
 
 define bot respond to quiz
-  "Let me explain the concepts without giving away the answer. My name is kyle zhen"
+  "Let me explain the concepts without giving away the answer."
 
 define flow detect quiz question
   user ask quiz question

@@ -26,11 +26,6 @@ define user ask course material
   "What are the directions for project 3"
   "When is lab 2 due?"
 
-define flow answer course content question
-  user ask course material 
-  $rrcanswer = execute retrieve_relevant_chunks()
-  $check_facts = True
-  bot $rrcanswer
 
 
 

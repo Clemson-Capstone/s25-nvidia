@@ -1,3 +1,0 @@
-# Gradescope Autograder Setup - 0
-
-<link rel="stylesheet" href="https://instructure-uploads.s3.us-east-1.amazonaws.com/account_12150000000000001/attachments/6025727/mobile%20app.css"><div style="position: relative; padding-bottom: 56.25%; padding-top: 40px; height: 0; overflow: auto; " title="embedded content"><iframe id="ensembleEmbeddedContent_l6ROgjK72UCUrbCDnQB2rw" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" title="Gradescope Autograder Demo" src="https://cdnapisec.kaltura.com/p/4299903/sp/429990300/embedIframeJs/uiconf_id/51027642/partner_id/4299903?iframeembed=true&amp;entry_id=1_8p7pvngu" allowfullscreen="allowfullscreen" data-mce-fragment="1"></iframe></div>
