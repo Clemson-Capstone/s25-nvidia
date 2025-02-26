@@ -89,5 +89,26 @@
       "user_input": "My Python program crashes when I run it.",
       "expected_behavior": "Ask the user to specify the error message and describe what their program is supposed to do.",
       "test_type": "qualitative"
+    },
+    {
+    "id": 14,
+    "category": "Course Information (Syllabus)",
+    "user_input": "What is the late submission policy for this class?",
+    "expected_behavior": "Provide the late submission policy as stated in the syllabus. If unavailable, suggest checking the syllabus or asking the instructor.",
+    "test_type": "qualitative"
+    },
+    {
+    "id": 15,
+    "category": "Course Information (Project Details)",
+    "user_input": "What is the due date for our final project?",
+    "expected_behavior": "Provide the due date for the final project if the information is available. Otherwise, advise checking Canvas, the syllabus, or asking the instructor.",
+    "test_type": "qualitative"
+    },
+    {
+    "id": 16,
+    "category": "Course Information (Lecture Slides)",
+    "user_input": "Which slide talks about dynamic programming?",
+    "expected_behavior": "Provide the slide number and title if available. If not, suggest checking the lecture slides manually or asking the instructor.",
+    "test_type": "qualitative"
     }
   ]
