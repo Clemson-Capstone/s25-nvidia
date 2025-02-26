@@ -21,9 +21,3 @@ define bot summarizing notification
   "Processing the lecture slides to identify key concepts..."
   "Examining the document to extract the most important information..."
 
-define flow document summarizer
-  user ask document summary
-  bot document summary guidance
-  bot summarizing notification
-  $summary = execute document_summary()
-  bot $summary

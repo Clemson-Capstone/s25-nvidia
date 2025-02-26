@@ -27,10 +27,9 @@ define user ask course material
   "When is lab 2 due?"
 
 define flow answer course content question
-  user ask course material 
-  $rrcanswer = execute retrieve_relevant_chunks()
-  $check_facts = True
-  bot $rrcanswer
-
+  user ask course material
+  $chunks = execute retrieve_relevant_chunks()
+  $answer = execute process_course_content()
+  bot $answer
 
 

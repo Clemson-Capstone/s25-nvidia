@@ -175,84 +175,122 @@ async def homework_brainstorm(context: dict, llm: BaseLLM):
             context_updates={}
         )
 
-#The next two actions is for document_summary.co
-document_summary_template = """
-Provide a comprehensive yet concise summary of the following document/lecture slides. Include:
+# #The next two actions is for document_summary.co
+# document_summary_template = """
+# Provide a comprehensive yet concise summary of the following document/lecture slides. Include:
 
-1. The main topic or focus of the document
-2. Key concepts, theories, or frameworks introduced
-3. Important definitions, formulas, or methodologies
-4. Major arguments, findings, or conclusions
-5. How the information is structured or flows
-6. Connections between different sections or ideas
+# 1. The main topic or focus of the document
+# 2. Key concepts, theories, or frameworks introduced
+# 3. Important definitions, formulas, or methodologies
+# 4. Major arguments, findings, or conclusions
+# 5. How the information is structured or flows
+# 6. Connections between different sections or ideas
 
-Document content: {document_content}
+# Document content: {document_content}
 
-Summary (organized by main sections):
-"""
+# Summary (organized by main sections):
+# """
+
+# @action(is_system_action=True)
+# async def document_summary(context: dict, llm: BaseLLM):
+#     logger.info("DOCUMENT SUMMARY ACTION TRIGGERED!")
+#     try:
+#         # Get the user message to identify which document they're asking about
+#         user_message = context.get("last_user_message")
+#         logger.info(f"Processing document summary request: {user_message}")
+        
+#         # Will have to fix this later to work with canvas grab
+#         document_content = await retrieve_document_content(user_message, context)
+        
+#         if not document_content:
+#             return ActionResult(
+#                 return_value="I couldn't find the specific document you're referring to. Could you provide more details about which document or lecture slides you'd like me to summarize?",
+#                 context_updates={}
+#             )
+        
+#         output_parser = StrOutputParser()
+#         prompt_template = PromptTemplate.from_template(document_summary_template)
+#         input_variables = {"document_content": document_content}
+#         chain = prompt_template | llm | output_parser
+        
+#         summary = await chain.ainvoke(input_variables)
+#         logger.info(f"Generated document summary of length: {len(summary)}")
+        
+#         return ActionResult(
+#             return_value=f"Here's a summary of the document:\n\n{summary}",
+#             context_updates={"document_summary": summary}
+#         )
+#     except Exception as e:
+#         logger.error(f"Error in document_summary: {e}")
+#         return ActionResult(
+#             return_value="I encountered an issue while trying to summarize the document. Could you specify which document you'd like me to summarize or try a different approach?",
+#             context_updates={}
+#         )
+
+# Helper function to retrieve document content, we might not need this is retrieve_relvant_chunks is predefiuned
+# async def retrieve_document_content(query: str, context: dict) -> str:
+#     """
+#     This function would need to be implemented to:
+#     1. Parse the user query to identify which document they want
+#     2. Retrieve the document from your storage/database
+#     3. Extract and return the content
+    
+#     You could use the retrieve_relevant_chunks function as a starting point
+#     and modify it to focus on retrieving entire documents instead of chunks.
+#     """
+    
+#     try:
+#         # Using your existing retrieve_relevant_chunks with modifications
+#         retrieval_result = await retrieve_relevant_chunks(context, llm)
+        
+#         # Extract the full document content rather than just chunks
+#         if isinstance(retrieval_result, ActionResult):
+#             content = retrieval_result.return_value
+#             # Process the content as needed
+#             return content
+#         return "Document content not found"
+#     except Exception as e:
+#         logger.error(f"Error retrieving document content: {e}")
+#         return "Error retrieving document content"
 
 @action(is_system_action=True)
-async def document_summary(context: dict, llm: BaseLLM):
-    logger.info("DOCUMENT SUMMARY ACTION TRIGGERED!")
+async def process_course_content(context: dict, llm: BaseLLM):
     try:
-        # Get the user message to identify which document they're asking about
+        # Get the user's question
         user_message = context.get("last_user_message")
-        logger.info(f"Processing document summary request: {user_message}")
+        logger.info(f"Processing course content for question: {user_message}")
         
-        # Will have to fix this later to work with canvas grab
-        document_content = await retrieve_document_content(user_message, context)
+        # Call retrieve_relevant_chunks to get the content
+        retrieval_result = await retrieve_relevant_chunks(context, llm)
         
-        if not document_content:
-            return ActionResult(
-                return_value="I couldn't find the specific document you're referring to. Could you provide more details about which document or lecture slides you'd like me to summarize?",
-                context_updates={}
-            )
+        # Process the retrieved chunks into a prompt
+        prompt_template = PromptTemplate.from_template(
+            "Based on the following course information, answer the question: {question}\n\n" +
+            "Course information: {context}\n\n" +
+            "Provide a clear, concise answer based only on the information provided above."
+        )
         
-        output_parser = StrOutputParser()
-        prompt_template = PromptTemplate.from_template(document_summary_template)
-        input_variables = {"document_content": document_content}
-        chain = prompt_template | llm | output_parser
+        # Extract content from retrieval result
+        if isinstance(retrieval_result, ActionResult):
+            context_data = retrieval_result.return_value
+        else:
+            context_data = retrieval_result
         
-        summary = await chain.ainvoke(input_variables)
-        logger.info(f"Generated document summary of length: {len(summary)}")
+        # Process through LLM
+        chain = prompt_template | llm | StrOutputParser()
+        answer = await chain.ainvoke({"question": user_message, "context": context_data})
         
         return ActionResult(
-            return_value=f"Here's a summary of the document:\n\n{summary}",
-            context_updates={"document_summary": summary}
+            return_value=answer,
+            context_updates={"processed_course_content": answer}
         )
     except Exception as e:
-        logger.error(f"Error in document_summary: {e}")
+        logger.error(f"Error in process_course_content: {e}")
         return ActionResult(
-            return_value="I encountered an issue while trying to summarize the document. Could you specify which document you'd like me to summarize or try a different approach?",
+            return_value="I'm having trouble processing information about that course. Could you try asking in a different way?",
             context_updates={}
         )
 
-# Helper function to retrieve document content, we might not need this is retrieve_relvant_chunks is predefiuned
-async def retrieve_document_content(query: str, context: dict) -> str:
-    """
-    This function would need to be implemented to:
-    1. Parse the user query to identify which document they want
-    2. Retrieve the document from your storage/database
-    3. Extract and return the content
-    
-    You could use the retrieve_relevant_chunks function as a starting point
-    and modify it to focus on retrieving entire documents instead of chunks.
-    """
-    
-    try:
-        # Using your existing retrieve_relevant_chunks with modifications
-        retrieval_result = await retrieve_relevant_chunks(context, llm)
-        
-        # Extract the full document content rather than just chunks
-        if isinstance(retrieval_result, ActionResult):
-            content = retrieval_result.return_value
-            # Process the content as needed
-            return content
-        return "Document content not found"
-    except Exception as e:
-        logger.error(f"Error retrieving document content: {e}")
-        return "Error retrieving document content"
-    
 VECTOR_STORE_PATH = "vectorstore.pkl"
 document_embedder = get_embedding_model()
 ranker = get_ranking_model()
@@ -284,6 +322,10 @@ try:
     RAILS.register_action(quiz_response, "quiz_response")
     RAILS.register_action(code_debug_response, "code_debug_response")
     RAILS.register_action(homework_brainstorm, "homework_brainstorm")
+    RAILS.register_action(process_course_content, "process_course_content")
+
+
+
     logger.info("Successfully initialized NeMo Guardrails and registered quiz_response")
     # After initialization, we can set the temperature if needed
     if 'temperature' in os.environ:

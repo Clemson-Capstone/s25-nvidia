@@ -20,9 +20,10 @@ define bot quiz guidance
 define bot respond to quiz
   "Let me explain the concepts without giving away the answer."
 
-define flow detect quiz question
-  user ask quiz question
-  bot quiz guidance
-  bot respond to quiz
-  $qanswer = execute quiz_response()
-  bot $qanswer
+define bot format_response($response)
+  "Based on the course materials, I can provide the following information: {$response}"
+  
+define flow answer course content question
+  user ask course material
+  $chunks = execute retrieve_relevant_chunks()
+  bot format_response($chunks)
