@@ -1,7 +1,3 @@
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8012, reload=True)
-    
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -34,6 +30,12 @@ class GetDocumentsRequest(BaseModel):
     course_id: int
     token: str  # Added token to get user_id
     user_id: Optional[str] = None  # Making user_id optional
+
+class GetCourseContentRequest(BaseModel):
+    course_id: int
+    token: str
+    content_type: str  # "course_info" or "file_list" or any other JSON file stored
+    user_id: Optional[str] = None
 
 class CanvasClient:
     def __init__(self, token):
@@ -254,6 +256,58 @@ async def get_documents(request: GetDocumentsRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/get_course_content")
+async def get_course_content(request: GetCourseContentRequest):
+    """
+    Returns the specified JSON content from a downloaded course
+    """
+    # Extract parameters
+    course_id = request.course_id
+    token = request.token
+    content_type = request.content_type
+    
+    # Validate inputs
+    if not course_id:
+        raise HTTPException(status_code=400, detail="Missing course_id")
+    if not token:
+        raise HTTPException(status_code=400, detail="Missing token")
+    if not content_type:
+        raise HTTPException(status_code=400, detail="Missing content_type")
+    
+    try:
+        client = CanvasClient(token)
+        # Use the user_id from request if provided, otherwise use the one from the Canvas client
+        user_id = request.user_id or str(client.user_id)
+        
+        course_id_str = str(course_id)
+        
+        # Map content_type to file name
+        file_map = {
+            "course_info": "course_info.json",
+            "file_list": "file_list.json",
+            # Add more mappings as needed
+        }
+        
+        # Get the file name for the requested content type
+        file_name = file_map.get(content_type)
+        if not file_name:
+            raise HTTPException(status_code=400, detail=f"Invalid content_type: {content_type}")
+        
+        # Construct the path to the JSON file
+        json_path = f"course_data/{user_id}/{course_id_str}/{file_name}"
+        
+        # Check if the file exists
+        if not os.path.exists(json_path):
+            raise HTTPException(status_code=404, detail=f"Content not found: {content_type}")
+        
+        # Read and return the JSON content
+        with open(json_path) as f:
+            content = json.load(f)
+        
+        return content
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/user_info")
 async def get_user_info(token: str):
     """
@@ -274,3 +328,7 @@ async def get_user_info(token: str):
 @app.get("/")
 async def index():
     return {"message": "You're on the course data manager!"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8012, reload=True)
