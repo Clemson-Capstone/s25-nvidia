@@ -58,18 +58,25 @@ Once the application is running, view the interactive API documentation at:
 ## API Endpoints
 
 - `GET /`: Welcome message
+- `GET /user_info`: Get information about the current user
+  - Query parameter: `token` (your Canvas token)
 - `POST /get_courses`: Get all courses for a user
   - Request body: `{"token": "your_canvas_token"}`
 - `POST /download_course`: Download a specific course's materials
-  - Request body: `{"user_id": "user123", "course_id": 12345, "token": "your_canvas_token"}`
+  - Request body: `{"course_id": 12345, "token": "your_canvas_token"}`
+  - The user_id is automatically determined from the token
 - `POST /get_documents`: Get list of documents in a downloaded course
-  - Request body: `{"user_id": "user123", "course_id": 12345}`
+  - Request body: `{"course_id": 12345, "token": "your_canvas_token"}`
+  - The user_id is automatically determined from the token
 
 ## Example Usage
 
 ### Using curl
 
 ```bash
+# Get user info
+curl -X GET "http://localhost:8012/user_info?token=your_canvas_token"
+
 # Get courses
 curl -X POST http://localhost:8012/get_courses \
   -H "Content-Type: application/json" \
@@ -78,12 +85,12 @@ curl -X POST http://localhost:8012/get_courses \
 # Download a course
 curl -X POST http://localhost:8012/download_course \
   -H "Content-Type: application/json" \
-  -d '{"user_id": "user123", "course_id": 12345, "token": "your_canvas_token"}'
+  -d '{"course_id": 12345, "token": "your_canvas_token"}'
 
 # Get documents
 curl -X POST http://localhost:8012/get_documents \
   -H "Content-Type: application/json" \
-  -d '{"user_id": "user123", "course_id": 12345}'
+  -d '{"course_id": 12345, "token": "your_canvas_token"}'
 ```
 
 ### Using Python requests
@@ -94,6 +101,13 @@ import json
 
 # Base URL
 base_url = "http://localhost:8012"
+
+# Get user info
+response = requests.get(
+    f"{base_url}/user_info", 
+    params={"token": "your_canvas_token"}
+)
+print(json.dumps(response.json(), indent=2))
 
 # Get courses
 response = requests.post(
@@ -106,7 +120,6 @@ print(json.dumps(response.json(), indent=2))
 response = requests.post(
     f"{base_url}/download_course",
     json={
-        "user_id": "user123",
         "course_id": 12345,
         "token": "your_canvas_token"
     }
