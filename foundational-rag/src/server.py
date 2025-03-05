@@ -18,6 +18,7 @@ import logging
 import os
 import shutil
 import time
+import inspect
 from contextlib import asynccontextmanager
 from inspect import getmembers
 from inspect import isclass
@@ -495,12 +496,31 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
         # call rag_chain if use_knowledge_base is enabled
         if prompt.use_knowledge_base:
             logger.info("Knowledge base is enabled. Using rag chain for response generation.")
+            logger.info(f"Query: {last_user_message}")
+            logger.info(f"Chat history length: {len(chat_history)}")
+            logger.info(f"Chat history: {chat_history}")
+            logger.info(f"Top n: {prompt.top_k}")
+            logger.info(f"Collection name: {collection_name}")
+            logger.info(f"LLM settings: {llm_settings}")
+            logger.info(f"rag_chain method class: {example.__class__.__name__}")
+            logger.info(f"rag_chain method exists: {'rag_chain' in dir(example)}")
             generator = example.rag_chain(query=last_user_message,
                                           chat_history=chat_history,
                                           top_n=prompt.top_k,
                                           collection_name=collection_name,
                                           **llm_settings)
-
+            # Log what type of generator we got
+            logger.info(f"Generator type: {type(generator)}")
+            
+            # Try to peek at the first item without consuming it (if possible)
+            try:
+                import inspect
+                if inspect.isgeneratorfunction(generator) or inspect.isgenerator(generator):
+                    logger.info("Confirmed generator is a proper generator object")
+                else:
+                    logger.info("Generator is not actually a generator function or generator object")
+            except Exception as e:
+                logger.error(f"Error inspecting generator: {str(e)}")
         else:
             generator = example.llm_chain(query=last_user_message, chat_history=chat_history, **llm_settings)
 
@@ -508,45 +528,89 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
             """Convert generator streaming response into `data: ChainResponse` format for chunk"""
             # unique response id for every query
             resp_id = str(uuid4())
+            logger.info(f"Generator object exists: {generator is not None}")
+            
             if generator:
-                logger.debug("Generated response chunks\n")
-                # Create ChainResponse object for every token generated
-                for chunk in generator:
+                logger.info("About to enter generator loop")
+                try:
+                    # Try to get the first item from the generator
+                    first_chunk = next(generator, None)
+                    logger.info(f"First chunk from generator: {first_chunk}")
+                    
+                    if first_chunk is not None:
+                        # Process the first chunk
+                        chain_response = ChainResponse()
+                        response_choice = ChainResponseChoices(
+                            index=0,
+                            message=Message(role="assistant", content=first_chunk),
+                            delta=Message(role=None, content=first_chunk),
+                            finish_reason=None
+                        )
+                        chain_response.id = resp_id
+                        chain_response.choices.append(response_choice)
+                        chain_response.model = prompt.model
+                        chain_response.object = "chat.completion.chunk"
+                        chain_response.created = int(time.time())
+                        logger.info(f"Sending first chunk with ID: {resp_id}")
+                        yield "data: " + str(chain_response.json()) + "\n\n"
+                        
+                        # Then process the rest of the chunks
+                        for chunk in generator:
+                            logger.info(f"Processing next chunk: '{chunk}'")
+                            chain_response = ChainResponse()
+                            response_choice = ChainResponseChoices(
+                                index=0,
+                                message=Message(role="assistant", content=chunk),
+                                delta=Message(role=None, content=chunk),
+                                finish_reason=None
+                            )
+                            chain_response.id = resp_id
+                            chain_response.choices.append(response_choice)
+                            chain_response.model = prompt.model
+                            chain_response.object = "chat.completion.chunk"
+                            chain_response.created = int(time.time())
+                            yield "data: " + str(chain_response.json()) + "\n\n"
+                        
+                        # [DONE] indicate end of response from server
+                        chain_response = ChainResponse()
+                        response_choice = ChainResponseChoices(
+                            finish_reason="stop",
+                        )
+                        chain_response.id = resp_id
+                        chain_response.choices.append(response_choice)
+                        chain_response.model = prompt.model
+                        chain_response.object = "chat.completion.chunk"
+                        chain_response.created = int(time.time())
+                        logger.info(f"Sending DONE marker with ID: {resp_id}")
+                        yield "data: " + str(chain_response.json()) + "\n\n"
+                    else:
+                        logger.warning("Generator is empty - no chunks to process")
+                        chain_response = ChainResponse()
+                        yield "data: " + str(chain_response.json()) + "\n\n"
+                except Exception as e:
+                    logger.error(f"Exception occurred while processing generator: {str(e)}")
+                    # Send an error response
                     chain_response = ChainResponse()
                     response_choice = ChainResponseChoices(
                         index=0,
-                        message=Message(role="assistant", content=chunk),
-                        delta=Message(role=None, content=chunk),
-                        finish_reason=None
-
+                        message=Message(role="assistant", content=f"Error processing response: {str(e)}"),
+                        delta=Message(role=None, content=f"Error processing response: {str(e)}"),
+                        finish_reason="error"
                     )
                     chain_response.id = resp_id
-                    chain_response.choices.append(response_choice)  # pylint: disable=E1101
+                    chain_response.choices.append(response_choice)
                     chain_response.model = prompt.model
                     chain_response.object = "chat.completion.chunk"
                     chain_response.created = int(time.time())
-                    logger.debug(response_choice)
-                    # Send generator with tokens in ChainResponse format
                     yield "data: " + str(chain_response.json()) + "\n\n"
-                chain_response = ChainResponse()
-
-                # [DONE] indicate end of response from server
-                response_choice = ChainResponseChoices(
-                    finish_reason="stop",
-                )
-                chain_response.id = resp_id
-                chain_response.choices.append(response_choice)  # pylint: disable=E1101
-                chain_response.model = prompt.model
-                chain_response.object = "chat.completion.chunk"
-                chain_response.created = int(time.time())
-                logger.debug(response_choice)
-                yield "data: " + str(chain_response.json()) + "\n\n"
             else:
+                logger.info("Generator is None, sending empty response")
                 chain_response = ChainResponse()
                 yield "data: " + str(chain_response.json()) + "\n\n"
+
+            logger.info("Finished streaming response")
 
         return StreamingResponse(response_generator(), media_type="text/event-stream")
-        # pylint: enable=unreachable
 
     except (MilvusException, MilvusUnavailableException) as e:
         exception_msg = ("Error from milvus server. Please ensure you have ingested some documents. "
