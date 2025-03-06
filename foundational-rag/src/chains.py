@@ -616,7 +616,6 @@ class UnstructuredRAG(BaseExample):
             raw_response = ""
             for chunk in chain.stream({"question": query}):
                 raw_response += chunk
-            logger.info(f"Raw LLM response before guardrails: {raw_response}")
             # Apply guardrails to the complete response
             guarded_response = self._apply_guardrails(raw_response, message, docs=None)
             logger.info(f"Guarded response after processing: {guarded_response}")
@@ -665,7 +664,6 @@ class UnstructuredRAG(BaseExample):
             logger.info("Entering multiturn path - returning to multiturn function")
             yield from self.rag_chain_with_multiturn(query, chat_history, top_n, collection_name, **kwargs)
         logger.info("Using standard (non-multiturn) rag path")
-        yield "Starting RAG process"
         logger.info("Using rag to generate response from document for the query: %s", query)
         #sec 1 document retrieval
         try:
@@ -770,7 +768,6 @@ class UnstructuredRAG(BaseExample):
             raw_response = ""
             for chunk in chain.stream({"question": query, "context": docs}):
                 raw_response += chunk
-            logger.info(f"Raw LLM response in rag_chain before guardrails: {raw_response}")
         except Exception as e:
             logger.error(f"Error generating response with LLM: {e}")
             yield "Error generating response from language model"
@@ -793,16 +790,16 @@ class UnstructuredRAG(BaseExample):
             yield "Error applying content guidelines"
             return
         # Section 8: Response streaming
-        try:
-            logger.info("Streaming the guarded response")
-            for chunk in guarded_response.split():
-                logger.info(f"Yielding chunk: {chunk}")
-                yield chunk + " "
-            logger.info("Finished yielding all chunks")
-        except Exception as e:
-            logger.error(f"Error streaming response: {e}")
-            yield "Error delivering response"
-            return
+        # try:
+        #     logger.info("Streaming the guarded response")
+        #     for chunk in guarded_response.split():
+        #         logger.info(f"Yielding chunk: {chunk}")
+        #         yield chunk + " "
+        #     logger.info("Finished yielding all chunks")
+        # except Exception as e:
+        #     logger.error(f"Error streaming response: {e}")
+        #     yield "Error delivering response"
+        #     return
 
         # except ConnectTimeout as e:
         #     logger.warning("Connection timed out while making a request to the LLM endpoint: %s", e)
@@ -829,7 +826,6 @@ class UnstructuredRAG(BaseExample):
                                 **kwargs) -> Generator[str, None, None]:
         """Execute a Retrieval Augmented Generation chain with multi-turn support."""
         logger.info("=== ENTERING RAG_CHAIN_WITH_MULTITURN METHOD ===")
-        yield "TEST YIELD FROM MULTITURN"
         logger.info("Using multiturn rag to generate response from document for the query: %s", query)
         
         #sec 1 document retrieval
