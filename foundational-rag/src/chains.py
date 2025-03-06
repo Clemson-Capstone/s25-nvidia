@@ -26,11 +26,13 @@ from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableAssign
+from langchain_core.runnables import Runnable
 from langchain_core.runnables import RunnablePassthrough
 from requests import ConnectTimeout
 from nemoguardrails import LLMRails, RailsConfig
 from nemoguardrails.actions import action
 from nemoguardrails.actions.actions import ActionResult
+from nemoguardrails.integrations.langchain.runnable_rails import RunnableRails
 from langchain.prompts import PromptTemplate
 from langchain_core.language_models.llms import BaseLLM
 
@@ -313,6 +315,7 @@ try:
         
     # Initialize rails without llm_params as it's not supported
     RAILS = LLMRails(rails_config)
+    
 
     #I am registering the python actions here
     RAILS.register_action(quiz_response, "quiz_response")
@@ -409,12 +412,10 @@ class UnstructuredRAG(BaseExample):
                 return response
                 
             # Generate response with guardrails - use proper message format
-            formatted_messages = [{"role": "user", "content": user_message}]
+            formatted_messages = [{"role": "user", "context": user_message}]
 
             logger.info(f"Sending to guardrails: {formatted_messages}")  # Add this log
-            # guarded_response = RAILS.generate(messages=formatted_messages, vars={"question": user_message})
-            
-            
+  
             
             guarded_response = RAILS.generate(messages=formatted_messages)
 
@@ -469,6 +470,7 @@ class UnstructuredRAG(BaseExample):
         # Prompt template with system message, conversation history and user query
         message = system_message + conversation_history + user_message
         self.print_conversation_history(message)
+        logger.info(f"This is the user_message in llm_chain: {user_message}")
 
         try:
             prompt_template = ChatPromptTemplate.from_messages(message)
@@ -640,8 +642,11 @@ class UnstructuredRAG(BaseExample):
             return
         # Section 7: Guardrails application
         try:
+            #Right here is where its going bad / the guardrails is receiving a blank message
             logger.info("Applying guardrails")
             guarded_response = self._apply_guardrails(raw_response, message)
+            logger.info(f"This is the raw response you are sending right before {raw_response }")
+            logger.info(f"This is the message you are sending right before {message }")
             logger.info(f"Guarded response after processing: {guarded_response}")
             
             if not guarded_response or not guarded_response.strip():
