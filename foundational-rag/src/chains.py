@@ -402,21 +402,24 @@ class UnstructuredRAG(BaseExample):
                 return response
                 
             # Find the last user message
-            user_message = ""
-            for role, content in reversed(messages):
-                if role == "user":
-                    user_message = content
-                    break
+            #user_message = ""
+            #for role, content in reversed(messages):
+            #    if role == "user":
+            #        user_message = content
+             #       break
             
-            if not user_message:
-                logger.warning("No user message found in conversation")
-                return response
+            #if not user_message:
+            #    logger.warning("No user message found in conversation")
+            #    return response
                 
             # Generate response with guardrails - use proper message format
-            formatted_messages = [{
-                "role": "user",
-                "content": user_message
-            }]
+            # formatted_messages = [{
+            #    "role": "user",
+            #    "content": user_message
+            # }]
+
+            formatted_messages = [{"role": role, "content": content} for role, content in messages]
+
             logger.info(f"Sending to guardrails: {formatted_messages}")  # Add this log
             guarded_response = RAILS.generate(messages=formatted_messages)
             logger.info(f"Raw guardrails response: {guarded_response}")  # Add this log
@@ -460,7 +463,7 @@ class UnstructuredRAG(BaseExample):
         # Append personality instructions based on the provided persona.
         # Assume that the Prompt object (passed from server.py) has a 'persona' attribute.
         # We can check kwargs for a persona or have it available in the prompt.
-        persona = kwargs.get("persona", "formal").lower()
+        persona = kwargs.get("persona", "drill_sergeant").lower()
         if persona == "formal":
             personality_instructions = prompts.get("formal_persona", "")
         elif persona == "casual":
