@@ -457,6 +457,23 @@ class UnstructuredRAG(BaseExample):
         if not system_prompt:
             system_prompt = "You are a polite teaching assistant designed to help students learn."
 
+        # Append personality instructions based on the provided persona.
+        # Assume that the Prompt object (passed from server.py) has a 'persona' attribute.
+        # We can check kwargs for a persona or have it available in the prompt.
+        persona = kwargs.get("persona", "formal").lower()
+        if persona == "formal":
+            personality_instructions = prompts.get("formal_persona", "")
+        elif persona == "casual":
+            personality_instructions = prompts.get("casual_persona", "")
+        elif persona == "drill_sergeant":
+            personality_instructions = prompts.get("drill_sergeant_persona", "")
+        else:
+            personality_instructions = ""  # default to no extra instructions if unknown
+
+        if personality_instructions:
+            system_prompt += " " + personality_instructions
+
+        # incorporate any system messages provided in the chat history
         for message in chat_history:
             if message.role == "system":
                 system_prompt = system_prompt + " " + message.content
