@@ -30,6 +30,7 @@ deploy:
 deploy-build:
 	@echo "Deploying containers with rebuild..."
 	@cd $(FOUNDATIONAL_RAG_DIR) && NVIDIA_API_KEY="$(NVIDIA_API_KEY)" docker compose -f $(DOCKER_COMPOSE_FILE) up -d --build
+	@echo "Access the Nvidia RAG Playground at http://localhost:8090"
 
 # Check container status
 status:
