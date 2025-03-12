@@ -172,9 +172,9 @@ class Prompt(BaseModel):
         pattern=r'[\s\S]*',
     )
     
-    #sets default as drill sergeant for clear, easy testing
+    #sets default persona
     persona: str = Field(
-        default="drill_sergeant",
+        default="formal",
         description="The personality of the assistant. Options: formal, casual, drill_sergeant."
     )
 
