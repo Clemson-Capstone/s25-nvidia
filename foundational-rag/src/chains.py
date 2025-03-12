@@ -463,7 +463,7 @@ class UnstructuredRAG(BaseExample):
         # Append personality instructions based on the provided persona.
         # Assume that the Prompt object (passed from server.py) has a 'persona' attribute.
         # We can check kwargs for a persona or have it available in the prompt.
-        persona = kwargs.get("persona", "drill_sergeant").lower()
+        persona = kwargs.get("persona", "formal").lower()
         
         # Get the configuration object to fetch persona instructions.
         config = get_config()
