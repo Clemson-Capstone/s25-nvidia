@@ -26,11 +26,13 @@ from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableAssign
+from langchain_core.runnables import Runnable
 from langchain_core.runnables import RunnablePassthrough
 from requests import ConnectTimeout
 from nemoguardrails import LLMRails, RailsConfig
 from nemoguardrails.actions import action
 from nemoguardrails.actions.actions import ActionResult
+from nemoguardrails.integrations.langchain.runnable_rails import RunnableRails
 from langchain.prompts import PromptTemplate
 from langchain_core.language_models.llms import BaseLLM
 
@@ -253,41 +255,101 @@ async def homework_brainstorm(context: dict, llm: BaseLLM):
 #         logger.error(f"Error retrieving document content: {e}")
 #         return "Error retrieving document content"
 
+#A new function that might work to get the response from retrieve_relevant_chunks
 @action(is_system_action=True)
 async def process_course_content(context: dict, llm: BaseLLM):
     try:
-        # Get the user's question
-        user_message = context.get("last_user_message")
-        logger.info(f"Processing course content for question: {user_message}")
-        
-        # Call retrieve_relevant_chunks to get the content
+        # First, call retrieve_relevant_chunks directly
         retrieval_result = await retrieve_relevant_chunks(context, llm)
         
-        # Process the retrieved chunks into a prompt
+        # Extract the chunks from the result
+        if isinstance(retrieval_result, ActionResult):
+            chunks_data = retrieval_result.return_value
+        else:
+            chunks_data = retrieval_result
+            
+        # Log the retrieved chunks for debugging
+        logger.info(f"Retrieved chunks: {chunks_data}")
+        
+        # Process the chunks into a coherent response
         prompt_template = PromptTemplate.from_template(
-            "Based on the following course information, answer the question: {question}\n\n" +
-            "Course information: {context}\n\n" +
+            "Based on the following course information, provide a helpful response to the question: {question}\n\n" +
+            "Course information: {chunks}\n\n" +
             "Provide a clear, concise answer based only on the information provided above."
         )
         
-        # Extract content from retrieval result
-        if isinstance(retrieval_result, ActionResult):
-            context_data = retrieval_result.return_value
-        else:
-            context_data = retrieval_result
-        
-        # Process through LLM
+        user_question = context.get("last_user_message")
+        input_variables = {"question": user_question, "chunks": chunks_data}
         chain = prompt_template | llm | StrOutputParser()
-        answer = await chain.ainvoke({"question": user_message, "context": context_data})
+        answer = await chain.ainvoke(input_variables)
         
-        return ActionResult(
-            return_value=answer,
-            context_updates={"processed_course_content": answer}
-        )
+        return answer
     except Exception as e:
         logger.error(f"Error in process_course_content: {e}")
+        return "I encountered an issue while retrieving course information. Could you please rephrase your question?"
+
+@action(is_system_action=True)
+async def retrieve_relevant_chunks(context: dict, llm: BaseLLM = None):
+    """
+    Retrieves relevant chunks from the vector database based on the user's query.
+    """
+    try:
+        # Get the user's query from context
+        user_message = context.get("last_user_message")
+        if not user_message:
+            logger.warning("No user message found in context for retrieval")
+            return ActionResult(
+                return_value="",
+                context_updates={}
+            )
+        
+        logger.info(f"Retrieving chunks for query: {user_message}")
+        
+        # Access the vector store
+        vs = get_vectorstore(VECTOR_STORE, document_embedder, "")  # Using default collection
+        if vs is None:
+            logger.error("Vector store not initialized for retrieval")
+            return ActionResult(
+                return_value="",
+                context_updates={}
+            )
+        
+        # Set up retriever with ranking if available
+        top_k = vector_db_top_k if ranker else 4 # Default to 5 chunks if no ranker
+        retriever = vs.as_retriever(search_kwargs={"k": top_k})
+        
+        # Retrieve and process documents
+        if ranker:
+            logger.info(f"Using ranker to narrow results to top {5} chunks")
+            ranker.top_n = 4  # Get top 5 most relevant chunks
+            reranker = RunnableAssign({
+                "context": lambda input: ranker.compress_documents(
+                    query=input['question'], 
+                    documents=input['context']
+                )
+            })
+            retriever = {"context": retriever, "question": RunnablePassthrough()} | reranker
+            docs = retriever.invoke(user_message)
+            chunks = [d.page_content for d in docs.get("context", [])]
+        else:
+            docs = retriever.invoke(user_message)
+            chunks = [d.page_content for d in docs]
+        
+        # Combine into a single text block
+        combined_chunks = "\n\n".join(chunks)
+        logger.info(f"Retrieved {len(chunks)} chunks, total size: {len(combined_chunks)} characters")
+        logger.info(f"Sample of retrieved content: {combined_chunks[:200]}...")
+        
+        # Return the chunks
         return ActionResult(
-            return_value="I'm having trouble processing information about that course. Could you try asking in a different way?",
+            return_value=combined_chunks,
+            context_updates={"relevant_chunks": combined_chunks}
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in retrieve_relevant_chunks: {e}")
+        return ActionResult(
+            return_value="",
             context_updates={}
         )
 
@@ -317,8 +379,10 @@ try:
         
     # Initialize rails without llm_params as it's not supported
     RAILS = LLMRails(rails_config)
+    
 
     #I am registering the python actions here
+    RAILS.register_action(retrieve_relevant_chunks, "retrieve_relevant_chunks")
     RAILS.register_action(quiz_response, "quiz_response")
     RAILS.register_action(code_debug_response, "code_debug_response")
     RAILS.register_action(homework_brainstorm, "homework_brainstorm")
@@ -394,7 +458,7 @@ class UnstructuredRAG(BaseExample):
 
             raise ValueError(f"Failed to upload document. {str(e)}") from e
     
-    def _apply_guardrails(self, response: str, messages: List[tuple]) -> str:
+    def _apply_guardrails(self, response: str, messages: List[tuple], docs=None) -> str:
         """Apply guardrails to the generated response."""
         try:
             if RAILS is None:
@@ -413,13 +477,85 @@ class UnstructuredRAG(BaseExample):
                 return response
                 
             # Generate response with guardrails - use proper message format
-            formatted_messages = [{
-                "role": "user",
-                "content": user_message
-            }]
-            logger.info(f"Sending to guardrails: {formatted_messages}")  # Add this log
+            # formatted_messages = [{"role": "user", "content": user_message}]
+
+            # logger.info(f"Sending to guardrails: {formatted_messages}")  # Add this log
+  
+            
+            # guarded_response = RAILS.generate(messages=formatted_messages)
+
+            #tryingto retireve the relvant chunks in the method and then send it over to the guardrials
+            if docs and len(docs) > 0:
+                try:
+                    # Try to log the first chunk to see its structure
+                    first_chunk = docs[0]
+                    if hasattr(first_chunk, 'page_content'):
+                        logger.info(f"Chunk type is Document object with page_content: {type(first_chunk)}")
+                        # It's a Document object
+                        relevant_chunks = "\n\n".join([doc.page_content for doc in docs])
+                        # Log a sample of each chunk
+                        for i, doc in enumerate(docs[:3]):  # Log first 3 chunks only to avoid log overflow
+                            logger.info(f"Chunk {i+1} sample: {doc.page_content[:200]}...")
+                    else:
+                        logger.info(f"Chunk type is: {type(first_chunk)}")
+                        # It's likely already a string
+                        relevant_chunks = "\n\n".join(docs)
+                        # Log a sample of each chunk
+                        for i, chunk in enumerate(docs[:3]):  # Log first 3 chunks only
+                            logger.info(f"Chunk {i+1} sample: {chunk[:200]}...")
+                except Exception as e:
+                    logger.error(f"Error processing chunks: {e}")
+                    # Fallback to safe string joining
+                    try:
+                        relevant_chunks = "\n\n".join([str(doc) for doc in docs])
+                        logger.info("Used fallback string conversion for chunks")
+                    except Exception as e2:
+                        logger.error(f"Fallback failed too: {e2}")
+                        relevant_chunks = ""
+                        
+                logger.info(f"Passing {len(docs)} chunks to guardrails (total length: {len(relevant_chunks)})")
+            else:
+                relevant_chunks = ""
+                logger.info("No chunks available to pass to guardrails")
+                                        
+            # vs = get_vectorstore(VECTOR_STORE, document_embedder, "")
+            # top_k = 4  # Get top 5 chunks
+            # retriever = vs.as_retriever(search_kwargs={"k": top_k})
+            # docs = retriever.invoke(user_message)
+            # relevant_chunks = "\n\n".join([d.page_content for d in docs])
+            
+            # logger.info(f"Sending to guardrails with relevant chunks: {relevant_chunks[:100]}...")
+            
+            logger.info(f"This is the user message/query we are sending from chains.py: {user_message}")
+
+            formatted_messages = [
+                {"role": "context", "content": relevant_chunks},
+                {
+                    "role": "user",
+                    "content": user_message
+                }
+            ]
+
+
+            logger.info(f"This is what you are sending formatted_messages: {formatted_messages}")  # Add this log
+            # formatted_messages = [
+            #     {
+            #         "role": "context",
+            #         "content": {
+            #             "relevant_chunks": relevant_chunks,
+            #             "raw_llm_response": response
+            #         }
+            #     },
+            #     {
+            #         "role": "user",
+            #         "content": user_message
+            #     }
+            # ]
+
             guarded_response = RAILS.generate(messages=formatted_messages)
-            logger.info(f"Raw guardrails response: {guarded_response}")  # Add this log
+        
+            logger.info(f"Raw guardrails response: {guarded_response}")
+            # logger.info(f"Raw guardrails response: {guarded_response}")  # Add this log
             
             # If we get an empty response, return the original
             if not guarded_response:
@@ -469,6 +605,7 @@ class UnstructuredRAG(BaseExample):
         # Prompt template with system message, conversation history and user query
         message = system_message + conversation_history + user_message
         self.print_conversation_history(message)
+        logger.info(f"This is the user_message in llm_chain: {user_message}")
 
         try:
             prompt_template = ChatPromptTemplate.from_messages(message)
@@ -479,10 +616,9 @@ class UnstructuredRAG(BaseExample):
             raw_response = ""
             for chunk in chain.stream({"question": query}):
                 raw_response += chunk
-
             # Apply guardrails to the complete response
-            guarded_response = self._apply_guardrails(raw_response, message)
-            
+            guarded_response = self._apply_guardrails(raw_response, message, docs=None)
+            logger.info(f"Guarded response after processing: {guarded_response}")
             # Stream the guarded response
             if guarded_response and guarded_response.strip():
                 for chunk in guarded_response.strip().split():
@@ -506,38 +642,87 @@ class UnstructuredRAG(BaseExample):
             collection_name (str): Name of the collection to be searched from vectorstore.
             kwargs: Additional keyword arguments for the LLM
         """
+        
+        logger.info("Hello this is kyle here")
+        logger.info(f"Query: {query}")
+        logger.info(f"Chat history length: {len(chat_history)}")
+        logger.info(f"Chat history: {chat_history}")
+        logger.info(f"Top n: {top_n}")
 
-        if os.environ.get("ENABLE_MULTITURN", "false").lower() == "true":
-            return self.rag_chain_with_multiturn(query, chat_history, top_n, collection_name, **kwargs)
-            
+        logger.info(f"Collection name: {collection_name}")
+
+
+
+
+        logger.info("=== ENTERING RAG_CHAIN METHOD IN CHAINS.PY ===")
+        # yield "TEST YIELD"
+        multiturn_enabled = os.environ.get("ENABLE_MULTITURN", "false").lower() == "true"
+        logger.info(f"ENABLE_MULTITURN environment variable value: {os.environ.get('ENABLE_MULTITURN', 'not set')}")
+        logger.info(f"Multiturn enabled: {multiturn_enabled}")
+        
+        if multiturn_enabled:
+            logger.info("Entering multiturn path - returning to multiturn function")
+            yield from self.rag_chain_with_multiturn(query, chat_history, top_n, collection_name, **kwargs)
+        logger.info("Using standard (non-multiturn) rag path")
         logger.info("Using rag to generate response from document for the query: %s", query)
-
+        #sec 1 document retrieval
         try:
+            logger.info("Starting document retrieval")
             vs = get_vectorstore(VECTOR_STORE, document_embedder, collection_name)
             if vs is None:
                 logger.error("Vector store not initialized properly")
                 raise ValueError()
-
+        except Exception as e:
+            logger.error(f"Error in document retrieval: {e}")
+            yield "Error retrieving documents"
+            return
+        #sec 2 setting up llm
+        try:
             llm = get_llm(**kwargs)
+        except Exception as e:
+            logger.error(f"Error initializing LLM: {e}")
+            yield "Error setting up language model"
+            return
+        #Sec 3 retriever setup 
+        try:
             top_k = vector_db_top_k if ranker else top_n
             logger.info("Setting retriever top k as: %s.", top_k)
-            retriever = vs.as_retriever(search_kwargs={"k": top_k})
 
+            logger.info("Creating retriever")
+            retriever = vs.as_retriever(search_kwargs={"k": top_k})
+            logger.info("Retriever created successfully")
+        except Exception as e:
+            logger.error(f"Error setting up retriever: {e}")
+            yield "Error setting up document retriever"
+            return
+        try:
+            logger.info("Setting up system prompt")
             system_prompt = ""
             conversation_history = []
             system_prompt += prompts.get("rag_template", "")
+            logger.info(f"System prompt: {system_prompt[:100]}...")
+
 
             for message in chat_history:
                 if message.role == "system":
                     system_prompt = system_prompt + " " + message.content
 
             system_message = [("system", system_prompt)]
-            user_message = [("user", "{question}")]
+            #I changed it right her eto a send the actual query parameter
+            user_message = [("user", query)]
             message = system_message + conversation_history + user_message
             
+            logger.info("Creating prompt template")
             self.print_conversation_history(message)
             prompt = ChatPromptTemplate.from_messages(message)
-
+            logger.info("Prompt template created")
+        except Exception as e:
+            logger.error(f"Error setting up prompt: {e}")
+            yield "Error preparing conversation template"
+            return
+        #sec 5 document retrieveal with/out ranker
+        try:
+            logger.info("Starting document retrieval process")
             if ranker:
                 logger.info(
                     "Narrowing the collection from %s results and further narrowing it to "
@@ -552,42 +737,86 @@ class UnstructuredRAG(BaseExample):
                         documents=input['context']
                     )
                 })
-
+                logger.info("Setting up retriever with reranker")
                 retriever = {"context": retriever, "question": RunnablePassthrough()} | reranker
+                logger.info("Retriever with reranker set up")
+
+                logger.info("Invoking retriever with query")
                 docs = retriever.invoke(query)
+
+                logger.info(f"Retrieved {len(docs.get('context', []))} documents")
                 docs = [d.page_content for d in docs.get("context", [])]
             else:
+                logger.info("Invoking retriever without reranker")
                 docs = retriever.invoke(query)
+                logger.info(f"Retrieved {len(docs)} documents")
                 docs = [d.page_content for d in docs]
+            logger.info(f"Sample of retrieved content: {docs[0][:100] if docs else 'No documents retrieved'}")
+        except Exception as e:
+            logger.error(f"Error retrieving documents with retriever: {e}")
+            yield "Error searching for relevant documents"
+            return
+        # Section 6: LLM chain creation and execution
+        try:
 
+            logger.info("Creating LLM chain")
             chain = prompt | llm | StrOutputParser()
+
+            logger.info("LLM chain created")
+    
+            logger.info("Streaming response from LLM")
             raw_response = ""
             for chunk in chain.stream({"question": query, "context": docs}):
                 raw_response += chunk
-
-            # Apply guardrails to the complete response
-            guarded_response = self._apply_guardrails(raw_response, message)
-            
-            # Stream the guarded response
-            for chunk in guarded_response.split():
-                yield chunk + " "
-
-        except ConnectTimeout as e:
-            logger.warning("Connection timed out while making a request to the LLM endpoint: %s", e)
-            yield "Connection timed out while making a request to the NIM endpoint. Verify if the NIM server is available."
-
         except Exception as e:
-            logger.warning("Failed to generate response: %s", e)
-            print_exc()
+            logger.error(f"Error generating response with LLM: {e}")
+            yield "Error generating response from language model"
+            return
+        # Section 7: Guardrails application
+        try:
+            #Right here is where its going bad / the guardrails is receiving a blank message
+            logger.info("Applying guardrails")
+            guarded_response = self._apply_guardrails(raw_response, message, docs=docs)
+            logger.info(f"This is the raw response you are sending right before {raw_response }")
+            logger.info(f"This is the message you are sending right before {message }")
+            logger.info(f"Guarded response after processing: {guarded_response}")
+            
+            if not guarded_response or not guarded_response.strip():
+                logger.warning("Guardrails returned empty response")
+                yield "I don't have a specific answer based on the available information."
+                return
+        except Exception as e:
+            logger.error(f"Error applying guardrails: {e}")
+            yield "Error applying content guidelines"
+            return
+        # Section 8: Response streaming
+        # try:
+        #     logger.info("Streaming the guarded response")
+        #     for chunk in guarded_response.split():
+        #         logger.info(f"Yielding chunk: {chunk}")
+        #         yield chunk + " "
+        #     logger.info("Finished yielding all chunks")
+        # except Exception as e:
+        #     logger.error(f"Error streaming response: {e}")
+        #     yield "Error delivering response"
+        #     return
 
-            if "[403] Forbidden" in str(e) and "Invalid UAM response" in str(e):
-                logger.warning("Authentication or permission error: Verify the validity and permissions of your NVIDIA API key.")
-                yield "Authentication or permission error: Verify the validity and permissions of your NVIDIA API key."
-            elif "[404] Not Found" in str(e):
-                logger.warning("Please verify the API endpoint and your payload. Ensure that the model name is valid.")
-                yield "Please verify the API endpoint and your payload. Ensure that the model name is valid."
-            else:
-                yield "Failed to generate response. Please ensure documents are ingested and try again."
+        # except ConnectTimeout as e:
+        #     logger.warning("Connection timed out while making a request to the LLM endpoint: %s", e)
+        #     yield "Connection timed out while making a request to the NIM endpoint. Verify if the NIM server is available."
+
+        # except Exception as e:
+        #     logger.warning("Failed to generate response: %s", e)
+        #     print_exc()
+
+        #     if "[403] Forbidden" in str(e) and "Invalid UAM response" in str(e):
+        #         logger.warning("Authentication or permission error: Verify the validity and permissions of your NVIDIA API key.")
+        #         yield "Authentication or permission error: Verify the validity and permissions of your NVIDIA API key."
+        #     elif "[404] Not Found" in str(e):
+        #         logger.warning("Please verify the API endpoint and your payload. Ensure that the model name is valid.")
+        #         yield "Please verify the API endpoint and your payload. Ensure that the model name is valid."
+        #     else:
+        #         yield "Failed to generate response. Please ensure documents are ingested and try again."
 
     def rag_chain_with_multiturn(self,
                                 query: str,
@@ -596,9 +825,10 @@ class UnstructuredRAG(BaseExample):
                                 collection_name: str,
                                 **kwargs) -> Generator[str, None, None]:
         """Execute a Retrieval Augmented Generation chain with multi-turn support."""
-
+        logger.info("=== ENTERING RAG_CHAIN_WITH_MULTITURN METHOD ===")
         logger.info("Using multiturn rag to generate response from document for the query: %s", query)
-
+        
+        #sec 1 document retrieval
         try:
             vs = get_vectorstore(VECTOR_STORE, document_embedder, collection_name)
             if vs is None:
@@ -609,7 +839,11 @@ class UnstructuredRAG(BaseExample):
             top_k = vector_db_top_k if ranker else top_n
             logger.info("Setting retriever top k as: %s.", top_k)
             retriever = vs.as_retriever(search_kwargs={"k": top_k})
-
+        except Exception as e:
+            logger.error("Error in Section 1 (Document Retrieval/LLM Setup): %s", e)
+            yield "Error during initial setup"
+            return
+        try:
             # conversation is tuple so it should be multiple of two
             # -1 is to keep last k conversation
             history_count = int(os.environ.get("CONVERSATION_HISTORY", 15)) * 2 * -1
@@ -649,7 +883,7 @@ class UnstructuredRAG(BaseExample):
                     return iter([""])
 
             # Prompt for response generation based on context
-            user_message = [("user", "{question}")]
+            user_message = [("user", query)]
 
             # Prompt template with system message, conversation history and user query
             message = system_message + conversation_history + user_message
@@ -680,10 +914,10 @@ class UnstructuredRAG(BaseExample):
             raw_response = ""
             for chunk in chain.stream({"question": f"{query}", "context": docs}):
                 raw_response += chunk
-
+            logger.info(f"Raw LLM  in multiturn response before guardrails: {raw_response}")
             # Apply guardrails to the complete response
             guarded_response = self._apply_guardrails(raw_response, message)
-            
+            logger.info(f"Guarded response in multiturn after processing: {guarded_response}")
             # Stream the guarded response
             for chunk in guarded_response.split():
                 yield chunk + " "
