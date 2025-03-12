@@ -190,6 +190,24 @@ class RetrieverConfig(ConfigWizard):
         help_txt="The name of the nemo retriever pipeline one of ranked_hybrid or hybrid",
     )
 
+@configclass
+class PersonaConfig(ConfigWizard):
+    """Configuration for personality instructions."""
+    formal: str = configfield(
+        "formal",
+        default="Please use formal language, maintain a professional tone, and provide detailed, precise explanations.",
+        help_txt="Formal personality instructions."
+    )
+    casual: str = configfield(
+        "casual",
+        default="Use a friendly, casual tone with simple language and a conversational style.",
+        help_txt="Casual personality instructions."
+    )
+    drill_sergeant: str = configfield(
+        "drill_sergeant",
+        default="Adopt a commanding and authoritative tone with clear, direct instructions. Speak as a drill sergeant who emphasizes discipline, precision, and unwavering focus. Provide concise guidance in a no-nonsense style.",
+        help_txt="Drill sergeant personality instructions."
+    )
 
 @configclass
 class AppConfig(ConfigWizard):
@@ -243,3 +261,10 @@ class AppConfig(ConfigWizard):
         help_txt="The configuration of the retriever pipeline.",
         default=RetrieverConfig(),
     )
+    personas: PersonaConfig = configfield(
+        "personas",
+        env=False,
+        help_txt="The persona instructions for the assistant.",
+        default=PersonaConfig(),
+    )
+

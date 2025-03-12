@@ -51,3 +51,8 @@ prompts:
       You will only use the contents of the evidence and not rely on external knowledge.
       Answer with yes/no. "evidence": {{ evidence }} "hypothesis": {{ response }} "entails":
     output_parser: "is_response_entailed"
+
+personas:
+  formal: "Please use formal language, maintain a professional tone, and provide detailed, precise explanations."
+  casual: "Use a friendly, casual tone with simple language and a conversational style."
+  drill_sergeant: "Adopt a commanding and authoritative tone with clear, direct instructions. Speak as a drill sergeant who emphasizes discipline, precision, and unwavering focus. Provide concise guidance and use a no-nonsense style while motivating and holding the student to high standards."
