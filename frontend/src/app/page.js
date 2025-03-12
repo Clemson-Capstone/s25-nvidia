@@ -50,6 +50,7 @@ export default function ChatPage() {
   const [contentType, setContentType] = useState('file_list');
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [downloadedCourses, setDownloadedCourses] = useState([]);
+  const [persona, setPersona] = useState("formal");
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -331,7 +332,8 @@ export default function ChatPage() {
       const requestBody = {
         messages: [...messages, newMessage],
         use_knowledge_base: useKnowledgeBase,
-        canvas_token: useKnowledgeBase ? canvasToken : undefined
+        canvas_token: useKnowledgeBase ? canvasToken : undefined,
+      	persona
       };
       
       const response = await fetch('http://localhost:8081/generate', {
@@ -647,6 +649,22 @@ export default function ChatPage() {
                   Run Test Case
                 </Button>
               )}
+            </div>
+	    {/* Persona Selection */}
+  	    <div className="flex items-center space-x-2">
+    	      <Label htmlFor="persona-select">Select Persona:</Label>
+  	    </div>
+  	    <div className="flex-1">
+    	      <Select value={persona} onValueChange={setPersona}>
+      	        <SelectTrigger id="persona-select">
+                  <SelectValue placeholder="Select a persona" />
+      	        </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="formal">Formal</SelectItem>
+                  <SelectItem value="casual">Casual</SelectItem>
+                  <SelectItem value="drill_sergeant">Drill Sergeant</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
