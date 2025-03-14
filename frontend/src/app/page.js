@@ -663,6 +663,10 @@ export default function ChatPage() {
                   <SelectItem value="formal">Formal</SelectItem>
                   <SelectItem value="casual">Casual</SelectItem>
                   <SelectItem value="drill_sergeant">Drill Sergeant</SelectItem>
+		  <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+	          <SelectItem value="supportive">Supportive</SelectItem>
+	          <SelectItem value="meme_lord">Meme Lord</SelectItem>
+	          <SelectItem value="humorous">Humorous</SelectItem>
                 </SelectContent>
               </Select>
             </div>
