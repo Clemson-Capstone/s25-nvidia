@@ -232,19 +232,6 @@ async def download_quiz(course_id: str, quiz_id: str, token: str, filename: str 
                     print(f"Error fetching quiz submission: {str(e)}")
                     traceback.print_exc()
                     # Continue without submission data if there's an error
-            
-            # Get quiz questions even if we don't have a submission
-            if not quiz_questions or not quiz_questions.get('quiz_questions'):
-                try:
-                    # CRITICAL CHANGE: Try getting questions with answers using the special endpoint
-                    questions_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/quizzes/{quiz_id}/questions?quiz_submission_attempt=1&quiz_submission_id={submission_id}" if submission_id else f"https://clemson.instructure.com/api/v1/courses/{course_id}/quizzes/{quiz_id}/questions"
-                    async with session.get(questions_url, headers=headers) as questions_response:
-                        if questions_response.status == 200:
-                            quiz_questions = await questions_response.json()
-                            print(f"Quiz questions found: {len(quiz_questions.get('quiz_questions', [])) if quiz_questions and 'quiz_questions' in quiz_questions else 'None'}")
-                except Exception as e:
-                    print(f"Error fetching quiz questions: {str(e)}")
-            
             # Start building the HTML content for the quiz
             html_content = f"""
             <html>
@@ -336,7 +323,7 @@ async def download_quiz(course_id: str, quiz_id: str, token: str, filename: str 
                 headers={"Content-Disposition": f'attachment; filename="{filename}"'}
             )
 
-            
+
 async def download_page_content(course_id: str, page_id: str, token: str, filename: str = None):
     """Download a page from Canvas using the page ID"""
     api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/pages/{page_id}"
