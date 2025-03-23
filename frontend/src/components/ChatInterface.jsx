@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import ReactMarkdown from 'react-markdown';
 
 const ChatInterface = ({
   messages,
@@ -23,6 +24,21 @@ const ChatInterface = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Custom styles for markdown elements
+  const markdownStyles = {
+    // Add custom styling for markdown elements
+    p: "my-1",
+    h1: "text-xl font-bold my-2",
+    h2: "text-lg font-bold my-2",
+    h3: "text-md font-bold my-1",
+    ul: "list-disc ml-4 my-2",
+    ol: "list-decimal ml-4 my-2",
+    li: "ml-2",
+    blockquote: "border-l-4 border-orange-300 pl-4 italic my-2",
+    code: "bg-gray-100 rounded px-1 py-0.5 font-mono text-sm",
+    pre: "bg-gray-100 rounded p-2 my-2 font-mono text-sm overflow-x-auto",
+  };
+
   return (
     <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
       <CardContent className="p-6">
@@ -41,14 +57,52 @@ const ChatInterface = ({
                     : 'bg-white text-gray-800 border border-orange-100'
                 }`}
               >
-                {message.content}
+                <ReactMarkdown
+                  components={{
+                    p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
+                    h1: ({ node, ...props }) => <h1 className={markdownStyles.h1} {...props} />,
+                    h2: ({ node, ...props }) => <h2 className={markdownStyles.h2} {...props} />,
+                    h3: ({ node, ...props }) => <h3 className={markdownStyles.h3} {...props} />,
+                    ul: ({ node, ...props }) => <ul className={markdownStyles.ul} {...props} />,
+                    ol: ({ node, ...props }) => <ol className={markdownStyles.ol} {...props} />,
+                    li: ({ node, ...props }) => <li className={markdownStyles.li} {...props} />,
+                    blockquote: ({ node, ...props }) => <blockquote className={markdownStyles.blockquote} {...props} />,
+                    code: ({ node, inline, ...props }) => 
+                      inline ? (
+                        <code className={`${markdownStyles.code} ${message.role === 'user' ? 'bg-orange-200/30 text-white' : ''}`} {...props} />
+                      ) : (
+                        <pre className={`${markdownStyles.pre} ${message.role === 'user' ? 'bg-orange-700/50' : ''}`}><code {...props} /></pre>
+                      ),
+                  }}
+                >
+                  {message.content}
+                </ReactMarkdown>
               </div>
             </div>
           ))}
           {streamingMessage && (
             <div className="mb-4 text-left">
               <div className="inline-block max-w-[80%] p-4 rounded-lg bg-white text-gray-800 border border-orange-100 shadow-sm">
-                {streamingMessage}
+                <ReactMarkdown
+                  components={{
+                    p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
+                    h1: ({ node, ...props }) => <h1 className={markdownStyles.h1} {...props} />,
+                    h2: ({ node, ...props }) => <h2 className={markdownStyles.h2} {...props} />,
+                    h3: ({ node, ...props }) => <h3 className={markdownStyles.h3} {...props} />,
+                    ul: ({ node, ...props }) => <ul className={markdownStyles.ul} {...props} />,
+                    ol: ({ node, ...props }) => <ol className={markdownStyles.ol} {...props} />,
+                    li: ({ node, ...props }) => <li className={markdownStyles.li} {...props} />,
+                    blockquote: ({ node, ...props }) => <blockquote className={markdownStyles.blockquote} {...props} />,
+                    code: ({ node, inline, ...props }) => 
+                      inline ? (
+                        <code className={markdownStyles.code} {...props} />
+                      ) : (
+                        <pre className={markdownStyles.pre}><code {...props} /></pre>
+                      ),
+                  }}
+                >
+                  {streamingMessage}
+                </ReactMarkdown>
               </div>
             </div>
           )}
@@ -56,17 +110,25 @@ const ChatInterface = ({
         </ScrollArea>
 
         <form onSubmit={handleSubmit} className="flex gap-3">
-          <Input
+          <Textarea
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-grow bg-white/50"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (inputMessage.trim() && !isLoading) {
+                  handleSubmit(e);
+                }
+              }
+            }}
+            placeholder="Type your message... (Shift+Enter for new line)"
+            className="flex-grow bg-white/50 min-h-[50px] max-h-[200px] overflow-y-auto resize-none"
             disabled={isLoading}
           />
           <Button 
             type="submit" 
             className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-sm"
-            disabled={isLoading}
+            disabled={isLoading || !inputMessage.trim()}
           >
             {isLoading ? 'Sending...' : 'Send'}
           </Button>
