@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import os
 import json
-from typing import Dict, List, Union, Optional
+from typing import Dict, List, Union, Optional, Any
 import requests
 import tempfile
 import shutil
@@ -13,6 +13,7 @@ import ssl
 import certifi
 import asyncio
 import io
+import mimetypes
 
 # Import the module downloader functionality
 from canvas_downloader import (
@@ -35,7 +36,7 @@ app.add_middleware(
 )
 
 # Define the RAG server URL
-RAG_SERVER_URL = "http://localhost:8081"
+RAG_SERVER_URL = "http://host.docker.internal:8081"
 
 # Define request models
 class TokenRequest(BaseModel):
@@ -64,6 +65,20 @@ class DownloadAndUploadRequest(BaseModel):
     course_id: int
     token: str
     user_id: Optional[str] = None
+
+class SelectedItem(BaseModel):
+    """Model representing a selected item from Canvas"""
+    name: str
+    type: str
+    id: Optional[Any] = None  # Accept any type for ID (int or str or None)
+    courseId: str  # Note: camelCase to match frontend
+
+class UploadSelectedToRAGRequest(BaseModel):
+    """Model for the upload_selected_to_rag endpoint request"""
+    course_id: str
+    token: str
+    user_id: str
+    selected_items: List[SelectedItem]
 
 class CanvasClient:
     def __init__(self, token):
@@ -145,15 +160,56 @@ class CanvasClient:
         return save_path
 
 async def upload_to_rag(file_path, file_name):
-    """Upload a file to the RAG server"""
-    with open(file_path, 'rb') as f:
-        files = {'file': (file_name, f)}
-        response = requests.post(f"{RAG_SERVER_URL}/documents", files=files)
+    """Upload a file to the RAG server using NVIDIA's simpler approach"""
+    print(f"[UPLOAD_TO_RAG] Starting upload for {file_name} from {file_path}")
+    
+    try:
+        # Check if file exists and has content
+        if not os.path.exists(file_path):
+            print(f"[UPLOAD_TO_RAG] ERROR: File {file_path} does not exist!")
+            raise FileNotFoundError(f"File {file_path} does not exist")
+            
+        file_size = os.path.getsize(file_path)
+        print(f"[UPLOAD_TO_RAG] File size: {file_size} bytes")
         
-        if response.status_code != 200:
-            raise Exception(f"Failed to upload to RAG: {response.text}")
+        if file_size == 0:
+            print(f"[UPLOAD_TO_RAG] ERROR: File is empty (0 bytes)")
+            raise ValueError("File is empty")
+            
+        # Determine mime type
+        mime_type, _ = mimetypes.guess_type(file_name)
+        if not mime_type:
+            if file_name.endswith('.html'):
+                mime_type = 'text/html'
+            else:
+                mime_type = 'application/octet-stream'
         
-        return response.json()
+        print(f"[UPLOAD_TO_RAG] Using mime type: {mime_type}")
+        
+        # Create files dict for request - this follows NVIDIA's implementation exactly
+        with open(file_path, 'rb') as f:
+            files = {"file": (file_name, f, mime_type)}
+            
+            url = f"{RAG_SERVER_URL}/documents"
+            print(f"[UPLOAD_TO_RAG] Sending request to: {url}")
+            
+            # Set a longer timeout for larger files
+            response = requests.post(url, files=files, timeout=600)
+            
+            print(f"[UPLOAD_TO_RAG] Response status: {response.status_code}")
+            if response.status_code == 200:
+                print(f"[UPLOAD_TO_RAG] Upload successful: {response.text}")
+                return {"status": "success"}
+            else:
+                print(f"[UPLOAD_TO_RAG] Upload failed: {response.text}")
+                raise Exception(f"Failed to upload to RAG: {response.text}")
+                
+    except Exception as e:
+        print(f"[UPLOAD_TO_RAG] EXCEPTION: Error uploading file {file_name} to RAG: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        raise e
+
 
 @app.post("/get_courses", response_model=Dict[str, str])
 async def get_courses(request: TokenRequest):
@@ -346,6 +402,173 @@ async def get_course_content(request: GetCourseContentRequest):
         return content
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/upload_selected_to_rag")
+async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
+    """
+    Upload multiple selected Canvas items to the RAG server
+    """
+    print(f"[UPLOAD_SELECTED_TO_RAG] Starting request with {len(request.selected_items)} items")
+    print(f"[UPLOAD_SELECTED_TO_RAG] Course ID: {request.course_id}, User ID: {request.user_id}")
+    
+    try:
+        course_id = request.course_id
+        token = request.token
+        user_id = request.user_id
+        selected_items = request.selected_items
+        
+        if not course_id or not token or not selected_items:
+            print("[UPLOAD_SELECTED_TO_RAG] ERROR: Missing required parameters")
+            return {"status": "error", "message": "Missing required parameters"}
+        
+        success_count = 0
+        failed_items = []
+        
+        # Process each selected item
+        for i, item in enumerate(selected_items):
+            print(f"[UPLOAD_SELECTED_TO_RAG] Processing item {i+1}/{len(selected_items)}: {item.name} (type: {item.type}, id: {item.id})")
+            try:
+                # Create a temp file for the content
+                temp_file_handle, temp_file_path = tempfile.mkstemp()
+                os.close(temp_file_handle)
+                print(f"[UPLOAD_SELECTED_TO_RAG] Created temporary file: {temp_file_path}")
+                
+                # Extract values
+                item_name = item.name
+                item_type = item.type
+                item_id = item.id  # This might be None for some items
+                
+                # Convert ID to string if not None
+                if item_id is not None:
+                    item_id = str(item_id)
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Converted item ID to string: {item_id}")
+
+                # For items without an ID, like externalurl, we need a special case
+                if item_type.lower() == 'externalurl' and not item_id:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] ExternalURL without ID. Creating HTML placeholder.")
+                    html_content = f"""
+                    <html>
+                    <head>
+                        <title>{item_name}</title>
+                    </head>
+                    <body>
+                        <h1>{item_name}</h1>
+                        <p>This is an external URL from Canvas. The content is not available for direct ingestion.</p>
+                    </body>
+                    </html>
+                    """
+                    temp_file_path += ".html"
+                    with open(temp_file_path, "w") as f:
+                        f.write(html_content)
+                    
+                    # Upload the placeholder
+                    filename = f"{item_name}.html"
+                    await upload_to_rag(temp_file_path, filename)
+                    success_count += 1
+                    continue
+                
+                # Skip items with no ID
+                if not item_id:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Skipping item with no ID: {item_name}")
+                    failed_items.append({
+                        "name": item_name,
+                        "error": "No content ID available"
+                    })
+                    continue
+                
+                # Determine the appropriate extension
+                file_extension = ".html"  # Default to HTML
+                
+                # Rename temp file with appropriate extension
+                new_temp_file_path = temp_file_path + file_extension
+                os.rename(temp_file_path, new_temp_file_path)
+                temp_file_path = new_temp_file_path
+                print(f"[UPLOAD_SELECTED_TO_RAG] Renamed temporary file with extension: {temp_file_path}")
+                
+                # Get the content based on the item type
+                print(f"[UPLOAD_SELECTED_TO_RAG] Fetching content from Canvas for item: {item_name} (type: {item_type}, id: {item_id})")
+                try:
+                    response = await get_course_item_content(
+                        course_id=course_id, 
+                        item_id=item_id,  # Changed from content_id to item_id
+                        item_type=item_type, 
+                        token=token
+                    )
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Got response from get_course_item_content, type: {type(response)}")
+                except Exception as content_error:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] ERROR fetching content: {str(content_error)}")
+                    import traceback
+                    print(traceback.format_exc())
+                    raise
+                
+                # Handle different response types
+                if isinstance(response, (str, bytes)):
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Response is a string or bytes, length: {len(response)}")
+                    with open(temp_file_path, "wb") as f:
+                        f.write(response if isinstance(response, bytes) else response.encode('utf-8'))
+                elif isinstance(response, Response):
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Response is a FastAPI Response")
+                    with open(temp_file_path, "wb") as f:
+                        f.write(response.body)
+                else:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Unexpected response type: {type(response)}")
+                    with open(temp_file_path, "wb") as f:
+                        if hasattr(response, 'body'):
+                            f.write(response.body)
+                        elif hasattr(response, 'content'):
+                            f.write(response.content)
+                        else:
+                            # Last resort, convert to string
+                            f.write(str(response).encode('utf-8'))
+                
+                # Check if the file has content
+                file_size = os.path.getsize(temp_file_path)
+                print(f"[UPLOAD_SELECTED_TO_RAG] Temporary file size: {file_size} bytes")
+                
+                if file_size == 0:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] WARNING: Temporary file is empty")
+                    raise Exception("Downloaded content is empty")
+                
+                # Upload the file to the RAG server
+                filename = f"{item_name}{file_extension}"
+                print(f"[UPLOAD_SELECTED_TO_RAG] Uploading to RAG: {filename}")
+                try:
+                    rag_response = await upload_to_rag(temp_file_path, filename)
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Upload successful: {rag_response}")
+                except Exception as upload_error:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] ERROR during upload: {str(upload_error)}")
+                    raise
+                
+                success_count += 1
+                print(f"[UPLOAD_SELECTED_TO_RAG] Successfully processed item {i+1}")
+                
+                # Clean up temp file
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Cleaned up temporary file")
+                    
+            except Exception as e:
+                print(f"[UPLOAD_SELECTED_TO_RAG] ERROR processing item {i+1}: {str(e)}")
+                failed_items.append({
+                    "name": item.name,
+                    "error": str(e)
+                })
+                # Continue with the next item
+        
+        final_result = {
+            "status": "success",
+            "message": f"{success_count} items to knowledge base",
+            "success_count": success_count,
+            "failed_items": failed_items
+        }
+        print(f"[UPLOAD_SELECTED_TO_RAG] Completed request: {final_result}")
+        return final_result
+            
+    except Exception as e:
+        print(f"[UPLOAD_SELECTED_TO_RAG] FATAL ERROR: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return {"status": "error", "message": str(e)}
 
 @app.post("/download_and_upload_to_rag")
 async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
