@@ -54,15 +54,23 @@ logger = logging.getLogger(__name__)
 
 #Defining the python actions 
 
-# # Define the quiz response prompt template
+# Define the quiz response prompt template
 quiz_response_template = """
-Based on the following quiz question, DO NOT provide or hint at the correct answer.
-Instead, explain the underlying concepts to help understanding.
-
-Question: {question}
-
-Concept Explanation (no answers):
-"""
+        Based on the following quiz question, DO NOT provide or hint at the correct answer.
+        Instead, explain the underlying concep\ts to help understanding.
+        
+        Question: {question}
+        
+        Format your response exactly as follows (preserve all newlines and spacing):
+        
+        Key Concept 1
+        
+        Key Concept 2
+        
+        Practical Application
+        
+        Brief explanation connecting the concepts.
+        """
 
 @action(is_system_action=True)
 async def quiz_response(context: dict, llm: BaseLLM):
@@ -79,12 +87,13 @@ async def quiz_response(context: dict, llm: BaseLLM):
         chain = prompt_template | llm | output_parser
         
         # Invoke the chain to generate a response
-        answer = await chain.ainvoke(input_variables)
-        logger.info(f"Generated quiz response: {answer}")
+        raw_answer = await chain.ainvoke(input_variables)
+        formatted_answer = raw_answer.replace("\n\n", "<br><br>").replace("\n", "<br>")
+        logger.info(f"Generated quiz response: {formatted_answer}")
         
         # Return an ActionResult with the answer and any context updates (if needed)
         return ActionResult(
-            return_value="I understand you're asking about: " + answer,
+            return_value="I understand you're asking about: " + formatted_answer,
             context_updates={}
         )
     except Exception as e:
@@ -776,6 +785,7 @@ class UnstructuredRAG(BaseExample):
         try:
             #Right here is where its going bad / the guardrails is receiving a blank message
             logger.info("Applying guardrails")
+            #
             guarded_response = self._apply_guardrails(raw_response, message, docs=docs)
             logger.info(f"This is the raw response you are sending right before {raw_response }")
             logger.info(f"This is the message you are sending right before {message }")

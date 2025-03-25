@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nvidia-rag.canvasApiName" . }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+    app.kubernetes.io/component: canvas-api
+spec:
+  replicas: {{ .Values.canvasApi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "nvidia-rag.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: canvas-api
+  template:
+    metadata:
+      labels:
+        {{- include "nvidia-rag.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: canvas-api
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.canvasApi.securityContext | nindent 8 }}
+      containers:
+        - name: canvas-api
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.canvasApi.image.repository }}:{{ .Values.canvasApi.image.tag }}
+          imagePullPolicy: {{ .Values.canvasApi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.canvasApi.containerPorts.http }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.canvasApi.resources | nindent 12 }}
+          env:
+            {{- range $key, $value := .Values.canvasApi.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          volumeMounts:
+            {{- toYaml .Values.canvasApi.volumeMounts | nindent 12 }}
+      volumes:
+        {{- toYaml .Values.canvasApi.volumes | nindent 8 }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

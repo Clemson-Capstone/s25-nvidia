@@ -1,0 +1,79 @@
+# RAG Server source volume PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: src-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.src.size | default "10Gi" }}
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- else }}
+  storageClassName: standard
+  {{- end }}
+---
+# Guardrails configuration volume PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: guardrails-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.guardrails.size | default "1Gi" }}
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- else }}
+  storageClassName: standard
+  {{- end }}
+---
+# Canvas application volume PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: canvas-app-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.canvasApp.size | default "5Gi" }}
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- else }}
+  storageClassName: standard
+  {{- end }}
+---
+# Course data volume PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: course-data-pvc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistence.courseData.size | default "10Gi" }}
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- else }}
+  storageClassName: standard
+  {{- end }}

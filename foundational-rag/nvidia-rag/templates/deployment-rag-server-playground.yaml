@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nvidia-rag.ragPlaygroundName" . }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-playground
+spec:
+  replicas: {{ .Values.ragPlayground.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "nvidia-rag.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rag-playground
+  template:
+    metadata:
+      labels:
+        {{- include "nvidia-rag.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rag-playground
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.ragPlayground.securityContext | nindent 8 }}
+      containers:
+        - name: rag-playground
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.ragPlayground.image.repository }}:{{ .Values.ragPlayground.image.tag }}
+          imagePullPolicy: {{ .Values.ragPlayground.image.pullPolicy }}
+          command: ["--port", "8090"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.ragPlayground.containerPorts.http }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.ragPlayground.resources | nindent 12 }}
+          env:
+            {{- range $key, $value := .Values.ragPlayground.env }}
+            - name: {{ $key }}
+              value: {{ tpl $value $ | quote }}
+            {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -25,7 +25,6 @@ define bot format_response($response)
   
 define flow answer course content question
   user ask quiz question
-  bot quiz guidance
   bot respond to quiz
   $qanswer = execute quiz_response()
   bot $qanswer
