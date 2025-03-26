@@ -5,3 +5,5 @@ python-multipart
 requests
 aiohttp
 certifi
+prometheus-client
+prometheus-fastapi-instrumentator

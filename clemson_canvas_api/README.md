@@ -24,28 +24,14 @@ clemson_canvas_api/
 
 ## Running the Container
 
-### Quick Start
-
-```bash
-# Create the course_data directory
-mkdir -p course_data
-
-# Build and start the container
-docker compose up -d
-
-# View logs
-docker compose logs -f
-```
-
 The API will be accessible at http://localhost:8012
 
 ### Rebuilding After Changes
 
 ```bash
 # Rebuild and restart
-docker compose down
-docker compose build --no-cache
-docker compose up -d
+docker build -t course-data-manager .
+docker run -d -p 8012:8012 -p 9090:9090 -v $(pwd)/course_data:/app/course_data --name course-data-manager course-data-manager
 ```
 
 ## API Documentation
