@@ -28,6 +28,7 @@ from typing import List
 from uuid import uuid4
 
 import bleach
+from datetime import datetime
 from fastapi import FastAPI
 from fastapi import File
 from fastapi import Request
@@ -469,14 +470,21 @@ async def upload_document(
 )
 async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
     """Generate and stream the response to the provided prompt."""
-
     try:
         chat_history = prompt.messages
         collection_name = prompt.collection_name
         # The last user message will be the query for the rag or llm chain
         last_user_message = next((message.content for message in reversed(chat_history) if message.role == 'user'),
                                  None)
-
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        repo_root = os.path.dirname(os.path.abspath(__file__))
+        vta_response_dir = os.path.join(repo_root, "benchmarks", "queries")
+        os.makedirs(vta_response_dir, exist_ok=True)
+        vta_response = os.path.join(vta_response_dir, f"user_query_{timestamp}.txt")
+        # Save output into file
+        with open(vta_response, 'a') as file:
+            file.write(str(last_user_message))
+        
         # Find and remove the last user message if present
         for i in reversed(range(len(chat_history))):
             if chat_history[i].role == 'user':
@@ -511,7 +519,16 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
             if generator:
                 logger.debug("Generated response chunks\n")
                 # Create ChainResponse object for every token generated
+                #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 for chunk in generator:
+                    repo_root = os.path.dirname(os.path.abspath(__file__))
+                    vta_response_dir = os.path.join(repo_root, "benchmarks", "responses")
+                    os.makedirs(vta_response_dir, exist_ok=True)
+                    vta_response = os.path.join(vta_response_dir, f"vta_response_{timestamp}.txt")
+                    # Save output into file
+                    with open(vta_response, 'a') as file:
+                        print(chunk)
+                        file.write(str(chunk))
                     chain_response = ChainResponse()
                     response_choice = ChainResponseChoices(
                         index=0,
@@ -544,7 +561,6 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
             else:
                 chain_response = ChainResponse()
                 yield "data: " + str(chain_response.json()) + "\n\n"
-
         return StreamingResponse(response_generator(), media_type="text/event-stream")
         # pylint: enable=unreachable
 
