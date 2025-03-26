@@ -1,18 +1,20 @@
 # Global settings
 global:
   imageRegistry: nvcr.io
-  imagePullSecrets: []
+  imagePullSecrets: 
+    - name: nvidia-registry-secret
   storageClass: ""
   nodeSelector:
     kubernetes.io/os: linux
   tolerations: []
   affinity: {}
   # Enterprise configuration
+  #setting false to test
   enterprise:
-    enabled: true  # Set to true for enterprise deployment
-    highAvailability: true  # Enable for production deployments
+    enabled: false # Set to true for enterprise deployment
+    highAvailability: false # Enable for production deployments
     monitoring:
-      enabled: true  # Enable Prometheus metrics
+      enabled: false # Enable Prometheus metrics
 
 # RAG Server Configuration
 ragServer:
@@ -21,19 +23,19 @@ ragServer:
     repository: nvidia/blueprint/rag-server
     tag: 1.0.0
     pullPolicy: IfNotPresent
-  
+  args: ["--port", "8081"]
   # For enterprise HA configuration
-  replicaCount: 2  # Use at least 2 replicas for HA
+  replicaCount: 1  # Use at least 2 replicas for HA
   
   resources:
     requests:
       cpu: 2
       memory: 4Gi
-      nvidia.com/gpu: 1
+      nvidia.com/gpu: 0 #setting to zero for now
     limits:
       cpu: 4
       memory: 8Gi
-      nvidia.com/gpu: 1
+      nvidia.com/gpu: 0 #setting to zero for now
       
   # Pod Disruption Budget for HA
   podDisruptionBudget:
@@ -42,7 +44,7 @@ ragServer:
   
   # Autoscaling for enterprise workloads
   autoscaling:
-    enabled: true
+    enabled: false
     minReplicas: 2
     maxReplicas: 5
     targetCPUUtilizationPercentage: 80
@@ -62,9 +64,9 @@ ragServer:
   
   env:
     EXAMPLE_PATH: 'src/'
-    APP_VECTORSTORE_URL: "http://{{ .Release.Name }}-milvus:19530"
+    APP_VECTORSTORE_URL: "http://milvus-service:19530"
     APP_VECTORSTORE_NAME: "milvus"
-    APP_VECTORSTORE_INDEXTYPE: "GPU_CAGRA"
+    APP_VECTORSTORE_INDEXTYPE: "FLAT" #might be GPU_CAGRA
     COLLECTION_NAME: "nvidia_blogs"
     APP_RETRIEVER_SCORETHRESHOLD: "0.25"
     # Use the models from NVIDIA API configuration
@@ -95,25 +97,25 @@ ragServer:
     MAX_RETRIES: "3"
   
   # Extra environment variables from secrets
-  envFromSecrets:
-    - secretName: "{{ .Values.nvidiaApi.secretName }}"
-      key: "{{ .Values.nvidiaApi.secretKey }}"
+  env:
+    NVIDIA_API_KEY: "<your-api-key-here>"
+
   
   # Volume mounts
-  volumeMounts:
-    - name: src-volume
-      mountPath: /app/src
-    - name: guardrails-volume
-      mountPath: /app/src/guardrails
-      readOnly: true
+  # volumeMounts:
+  #   - name: src-volume
+  #     mountPath: /app/src
+  #   - name: guardrails-volume
+  #     mountPath: /app/src/guardrails
+  #     readOnly: true
   
-  volumes:
-    - name: src-volume
-      persistentVolumeClaim:
-        claimName: src-pvc
-    - name: guardrails-volume
-      configMap:
-        name: guardrails-config
+  # volumes:
+  #   - name: src-volume
+  #     persistentVolumeClaim:
+  #       claimName: src-pvc
+  #   - name: guardrails-volume
+  #     configMap:
+  #       name: guardrails-config
 
 # RAG Playground Configuration
 ragPlayground:
@@ -124,7 +126,10 @@ ragPlayground:
     pullPolicy: IfNotPresent
   
   replicaCount: 1
-  
+  args: ["--port", "8090"]
+
+
+
   resources:
     requests:
       cpu: 1
@@ -149,12 +154,32 @@ ragPlayground:
     APP_SERVERURL: "http://{{ .Release.Name }}-rag-server"
     APP_SERVERPORT: "8081"
     APP_MODELNAME: "meta/llama-3.1-70b-instruct"
-
-# Canvas API Configuration
-canvasApi:
+etcd:
   enabled: true
   image:
-    repository: nvidia/canvas-api
+    repository: quay.io/coreos/etcd
+    tag: v3.5.5
+  service:
+    name: etcd-service
+    type: ClusterIP
+    port: 2379
+
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: RELEASE.2023-06-29T05-12-28Z
+  service:
+    name: minio-service
+    type: ClusterIP
+    ports:
+      api: 9000
+# Canvas API Configuration
+#need camden to help out here
+canvasApi:
+  enabled: false
+  image:
+    repository: nothinghere
     tag: latest
     pullPolicy: IfNotPresent
   
@@ -215,10 +240,8 @@ ingress:
           pathType: Prefix
           service: rag-playground
           port: 8090
-        - path: /canvas
-          pathType: Prefix
-          service: canvas-api
-          port: 8012
+
+
 
 # Persistent Volume Claims
 persistence:
@@ -231,46 +254,42 @@ persistence:
     accessModes: [ "ReadWriteOnce" ]
     size: 1Gi
   canvasApp:
-    enabled: true
+    enabled: false
     accessModes: [ "ReadWriteOnce" ]
     size: 5Gi
   courseData:
-    enabled: true
+    enabled: false
     accessModes: [ "ReadWriteOnce" ]
     size: 10Gi
 
-# Vector DB (Milvus) Configuration
+# Milvus Deployment - using Docker Hub image directly
 vectordb:
   enabled: true
   milvus:
-    mode: standalone  # Will be overridden by highAvailability value
-    persistence:
-      enabled: true
-      size: 20Gi
+    mode: standalone
+    image:
+      repository: bitnami/etcd
+      tag: 3.5.10
+    config:
+      etcdEndpoint: "nvidia-rag-server-demo-etcd:2379"
+      minioAddress: "nvidia-rag-server-demo-minio:9000"
     resources:
       requests:
-        cpu: 2
-        memory: 4Gi
+        cpu: 500m
+        memory: 1Gi
       limits:
-        cpu: 4
-        memory: 8Gi
-    
-    # Enterprise-specific Milvus configurations
-    # {{- if .Values.global.enterprise.highAvailability }}
-    # ha:
-    #   enabled: true
-    #   replicas: 2
-    # {{- end }}
-    
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: false #I set it to false for now / but you can set up monitoring if you have promethus operator installed
-    
-    # Retention policies
-    retentionPolicy:
-      enabled: true
-      maxAge: 90d  # 90 days retention
+        cpu: 1
+        memory: 2Gi
+    initContainers:
+      - name: milvus-init-wait
+        image: busybox
+        command: ["/bin/sh"]
+        args: ["-c", "echo 'Waiting for etcd and minio...' && sleep 30"]
+    env:
+      KNOWHERE_GPU_MEM_POOL_SIZE: "2048;4096"
+    service:
+      type: ClusterIP
+      port: 19530
 
 # NVIDIA API Configuration
 nvidiaApi:
@@ -302,4 +321,5 @@ secrets:
   nvidiaapikey:
     name: nvidia-api-secret
     data:
-      NVIDIA_API_KEY: ""
+      NVIDIA_API_KEY: <your-api-key-here>
+

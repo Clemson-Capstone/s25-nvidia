@@ -27,7 +27,9 @@ spec:
         - name: rag-playground
           image: {{ .Values.global.imageRegistry }}/{{ .Values.ragPlayground.image.repository }}:{{ .Values.ragPlayground.image.tag }}
           imagePullPolicy: {{ .Values.ragPlayground.image.pullPolicy }}
-          command: ["--port", "8090"]
+          args: ["--port", "8090", "--host", "0.0.0.0", "--workers", "8"]
+
+
           ports:
             - name: http
               containerPort: {{ .Values.ragPlayground.containerPorts.http }}

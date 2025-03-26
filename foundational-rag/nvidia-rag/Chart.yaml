@@ -22,11 +22,11 @@ version: 1.0.0
 # follow Semantic Versioning. They should reflect the version the application is using.
 # It is recommended to use it with quotes.
 appVersion: "1.0.0"
-dependencies:
-  - name: milvus
-    version: ~4.0.0
-    repository: https://milvus-io.github.io/milvus-helm/
-    condition: vectordb.enabled
+# dependencies:
+#   - name: milvus
+#     version: ~4.0.0
+#     repository: https://milvus-io.github.io/milvus-helm/
+#     condition: vectordb.enabled
   # - name: nvidia-inference-microservices
   #   version: ~1.0.0
   #   repository: https://nvidia.github.io/nvidia-inference-microservices-helm/

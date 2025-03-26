@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-milvus
+  labels:
+    app: {{ .Release.Name }}-milvus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-milvus
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-milvus
+    spec:
+      containers:
+        - name: milvus
+          image: milvusdb/milvus:v2.4.15-gpu
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 19530
+              name: grpc
+            - containerPort: 9091
+              name: http
+          env:
+            - name: ETCD_ENDPOINTS
+              value: "{{ .Values.vectordb.milvus.config.etcdEndpoint }}"
+            - name: MINIO_ADDRESS
+              value: "{{ .Values.vectordb.milvus.config.minioAddress | default (.Release.Name | printf "%s-minio:9000") }}"
+            - name: KNOWHERE_GPU_MEM_POOL_SIZE
+              value: "2048;4096"
+          resources:
+            requests:
+              cpu: 2
+              memory: 4Gi
+            limits:
+              cpu: 4
+              memory: 8Gi
