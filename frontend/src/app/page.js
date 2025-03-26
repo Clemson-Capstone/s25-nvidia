@@ -24,6 +24,35 @@ import {
 
 import edgeCases from '@/app/data/edgecase_dataset.json';
 
+// function for text-to-speech
+function speakText(text) {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voices = window.speechSynthesis.getVoices();
+    // Try to find a female voice. Note that not all browsers provide gender info.
+    // You might need to filter by voice name or language. For example:
+    const femaleVoice = voices.find(voice =>
+      voice.name.toLowerCase().includes('samantha') ||
+      voice.name.toLowerCase().includes('zira') ||
+      (voice.lang === 'en-US' && voice.name.toLowerCase().includes('female'))
+    );
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    } else {
+      console.warn('No female voice found; using default voice.');
+    }
+
+    // Adjust additional parameters as needed ( 1 being default ):
+    utterance.pitch = 1;
+    utterance.rate = 1.4;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  } else {
+    console.error('Speech synthesis not supported in this browser.');
+  }
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -78,6 +107,8 @@ export default function ChatPage() {
       fetchCourses(savedToken);
     }
   }, [messages, streamingMessage]);
+
+
   
   // Check for downloaded courses whenever userId changes
   useEffect(() => {
@@ -369,6 +400,7 @@ export default function ChatPage() {
                     role: 'assistant',
                     content: accumulatedMessage
                   }]);
+                  speakText(accumulatedMessage);
                   setStreamingMessage('');
                 }
                 break;
@@ -663,6 +695,10 @@ export default function ChatPage() {
                   <SelectItem value="formal">Formal</SelectItem>
                   <SelectItem value="casual">Casual</SelectItem>
                   <SelectItem value="drill_sergeant">Drill Sergeant</SelectItem>
+                  <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                  <SelectItem value="supportive">Supportive</SelectItem>
+                  <SelectItem value="meme_lord">Meme Lord</SelectItem>
+                  <SelectItem value="humorous">Humorous</SelectItem>
                 </SelectContent>
               </Select>
             </div>
