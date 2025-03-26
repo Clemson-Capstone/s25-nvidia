@@ -13,7 +13,8 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci
+# Install prom-client as a dependency
+RUN npm ci && npm install --save prom-client
 
 # Rebuild the source code only when needed
 FROM base AS builder
