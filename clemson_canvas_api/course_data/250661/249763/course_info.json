@@ -1289,6 +1289,148 @@
                     "url": "https://clemson.instructure.com/api/v1/courses/249763/files/26058420"
                 }
             ]
+        },
+        {
+            "id": 631078,
+            "name": "Module 8 - Distributed systems",
+            "position": 9,
+            "unlock_at": null,
+            "require_sequential_progress": false,
+            "requirement_type": "all",
+            "publish_final_grade": false,
+            "prerequisite_module_ids": [],
+            "state": "completed",
+            "completed_at": "2025-03-26T02:10:14Z",
+            "items_count": 12,
+            "items_url": "https://clemson.instructure.com/api/v1/courses/249763/modules/631078/items",
+            "items": [
+                {
+                    "id": 4523702,
+                    "title": "Assignments",
+                    "position": 1,
+                    "indent": 1,
+                    "quiz_lti": false,
+                    "type": "SubHeader",
+                    "module_id": 631078
+                },
+                {
+                    "id": 4736342,
+                    "title": "Sprint 3 Teamwork Survey",
+                    "position": 2,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Assignment",
+                    "module_id": 631078,
+                    "html_url": "https://clemson.instructure.com/courses/249763/modules/items/4736342",
+                    "content_id": 2089530,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249763/assignments/2089530"
+                },
+                {
+                    "id": 4736400,
+                    "title": "Distributed Systems",
+                    "position": 3,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Assignment",
+                    "module_id": 631078,
+                    "html_url": "https://clemson.instructure.com/courses/249763/modules/items/4736400",
+                    "content_id": 2089541,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249763/assignments/2089541"
+                },
+                {
+                    "id": 4736343,
+                    "title": "Team Project",
+                    "position": 4,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "SubHeader",
+                    "module_id": 631078
+                },
+                {
+                    "id": 4736344,
+                    "title": "Project 8: Sprint 3",
+                    "position": 5,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Assignment",
+                    "module_id": 631078,
+                    "html_url": "https://clemson.instructure.com/courses/249763/modules/items/4736344",
+                    "content_id": 2089531,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249763/assignments/2089531"
+                },
+                {
+                    "id": 4523703,
+                    "title": "Slides",
+                    "position": 6,
+                    "indent": 1,
+                    "quiz_lti": false,
+                    "type": "SubHeader",
+                    "module_id": 631078
+                },
+                {
+                    "id": 4523753,
+                    "title": "Module-8-Lecture 1 -- Distributed Software Engineering.pptx",
+                    "position": 7,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "File",
+                    "module_id": 631078,
+                    "html_url": "https://clemson.instructure.com/courses/249763/modules/items/4523753",
+                    "content_id": 25081365,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249763/files/25081365"
+                },
+                {
+                    "id": 4523754,
+                    "title": "Module-8-Lecture 2 -- Distributed Software Engineering.pptx",
+                    "position": 8,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "File",
+                    "module_id": 631078,
+                    "html_url": "https://clemson.instructure.com/courses/249763/modules/items/4523754",
+                    "content_id": 25081366,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249763/files/25081366"
+                },
+                {
+                    "id": 4523704,
+                    "title": "Quiz",
+                    "position": 9,
+                    "indent": 1,
+                    "quiz_lti": false,
+                    "type": "SubHeader",
+                    "module_id": 631078
+                },
+                {
+                    "id": 4532585,
+                    "title": "Module 8 Quiz - Distributed Software Engineering",
+                    "position": 10,
+                    "indent": 2,
+                    "quiz_lti": false,
+                    "type": "Quiz",
+                    "module_id": 631078,
+                    "html_url": "https://clemson.instructure.com/courses/249763/modules/items/4532585",
+                    "content_id": 535532,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249763/quizzes/535532"
+                },
+                {
+                    "id": 4523705,
+                    "title": "Resources",
+                    "position": 11,
+                    "indent": 1,
+                    "quiz_lti": false,
+                    "type": "SubHeader",
+                    "module_id": 631078
+                },
+                {
+                    "id": 4560727,
+                    "title": "Readings (Ch.17, Pgs. 476-505)",
+                    "position": 12,
+                    "indent": 1,
+                    "quiz_lti": false,
+                    "type": "SubHeader",
+                    "module_id": 631078
+                }
+            ]
         }
     ],
     "files": [
@@ -1353,7 +1495,7 @@
             "url": "https://clemson.instructure.com/files/25276555/download?download_frd=1&verifier=uiokshFQsc6Evk791WT5Dc827N3gJZaFMFdvJikx",
             "size": 268239,
             "created_at": "2025-01-07T21:11:01Z",
-            "updated_at": "2025-03-05T19:44:58Z",
+            "updated_at": "2025-03-24T15:39:21Z",
             "unlock_at": null,
             "locked": false,
             "hidden": false,
@@ -1811,6 +1953,31 @@
             "hidden_for_user": false,
             "thumbnail_url": null,
             "modified_at": "2025-02-14T01:23:23Z",
+            "mime_class": "ppt",
+            "media_entry_id": null,
+            "category": "uncategorized",
+            "locked_for_user": false,
+            "visibility_level": "inherit"
+        },
+        {
+            "id": 25081365,
+            "uuid": "KGk53LWGDGyHyffyIViiiOIwFz3NKZiXhy4UUzYH",
+            "folder_id": 2895457,
+            "display_name": "Module-10-Lecture 1 -- Distributed Software Engineering.pptx",
+            "filename": "Module-10-Lecture+1+--+Distributed+Software+Engineering.pptx",
+            "upload_status": "success",
+            "content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "url": "https://clemson.instructure.com/files/25081365/download?download_frd=1&verifier=KGk53LWGDGyHyffyIViiiOIwFz3NKZiXhy4UUzYH",
+            "size": 478355,
+            "created_at": "2024-12-30T15:23:54Z",
+            "updated_at": "2025-03-25T18:00:17Z",
+            "unlock_at": "2025-03-25T04:00:00Z",
+            "locked": false,
+            "hidden": false,
+            "lock_at": null,
+            "hidden_for_user": false,
+            "thumbnail_url": null,
+            "modified_at": "2024-12-30T15:23:54Z",
             "mime_class": "ppt",
             "media_entry_id": null,
             "category": "uncategorized",

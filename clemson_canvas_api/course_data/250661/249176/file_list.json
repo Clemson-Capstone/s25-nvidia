@@ -224,6 +224,13 @@
         "url": "https://clemson.instructure.com/files/25058845/download?download_frd=1&verifier=qVVE4ZJykaFHSXe3JziUWCxUvw6Awnx7wKU8QPTJ"
     },
     {
+        "name": "brooksource 2.png",
+        "path": "course_data/250661/249176/files/brooksource 2.png",
+        "type": "image/png",
+        "size": 782610,
+        "url": "https://clemson.instructure.com/files/26175080/download?download_frd=1&verifier=bROFrKRBUFNbug5Wp8KnL6FXeHoJDI5Pznse54kp"
+    },
+    {
         "name": "cfn-ug-1.pdf",
         "path": "course_data/250661/249176/files/cfn-ug-1.pdf",
         "type": "application/pdf",
@@ -691,12 +698,5 @@
         "type": "image/png",
         "size": 266550,
         "url": "https://clemson.instructure.com/files/25058912/download?download_frd=1&verifier=kO56pWe8ffK5aGnaI3D7w4TbYbd4GJPCqI6SCLBW"
-    },
-    {
-        "name": "Screenshot 2024-10-08 at 3.23.00\u202fPM.png",
-        "path": "course_data/250661/249176/files/Screenshot 2024-10-08 at 3.23.00\u202fPM.png",
-        "type": "image/png",
-        "size": 733250,
-        "url": "https://clemson.instructure.com/files/25058894/download?download_frd=1&verifier=D90L9gnO22bjmQJJKY6UrdjRnoaXWcRc5KY6WFby"
     }
 ]

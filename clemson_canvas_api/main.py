@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Gauge, Histogram, Summary
 import os
 import json
 from typing import Dict, List, Union, Optional, Any
@@ -14,6 +16,7 @@ import certifi
 import asyncio
 import io
 import mimetypes
+import datetime
 
 # Import the module downloader functionality
 from canvas_downloader import (
@@ -24,7 +27,43 @@ from canvas_downloader import (
     get_course_item_content
 )
 
+# Define Prometheus metrics
+COURSE_DOWNLOADS = Counter(
+    "course_data_manager_course_downloads_total",
+    "Total number of course downloads",
+    ["course_id"]
+)
+
+UPLOADS_TO_RAG = Counter(
+    "course_data_manager_uploads_to_rag_total",
+    "Total number of uploads to RAG server",
+    ["status"]
+)
+
+FILE_SIZES = Histogram(
+    "course_data_manager_file_sizes_bytes",
+    "Distribution of file sizes in bytes",
+    buckets=[1000, 10000, 100000, 1000000, 10000000]
+)
+
+ACTIVE_REQUESTS = Gauge(
+    "course_data_manager_active_requests",
+    "Number of currently active requests"
+)
+
+REQUEST_LATENCY = Summary(
+    "course_data_manager_request_processing_seconds",
+    "Time spent processing requests",
+    ["endpoint"]
+)
+
+# Initialize the instrumentator before creating the app
+instrumentator = Instrumentator()
+
 app = FastAPI(title="Course Data Manager API")
+
+# Setup Prometheus instrumentation - must be done before adding other middleware
+instrumentator.instrument(app).expose(app)
 
 # Configure CORS - more permissive to allow all origins
 app.add_middleware(
@@ -167,13 +206,19 @@ async def upload_to_rag(file_path, file_name):
         # Check if file exists and has content
         if not os.path.exists(file_path):
             print(f"[UPLOAD_TO_RAG] ERROR: File {file_path} does not exist!")
+            UPLOADS_TO_RAG.labels(status="error_file_not_found").inc()
             raise FileNotFoundError(f"File {file_path} does not exist")
             
         file_size = os.path.getsize(file_path)
         print(f"[UPLOAD_TO_RAG] File size: {file_size} bytes")
         
+        # Record file size metrics
+        if file_size > 0:
+            FILE_SIZES.observe(file_size)
+        
         if file_size == 0:
             print(f"[UPLOAD_TO_RAG] ERROR: File is empty (0 bytes)")
+            UPLOADS_TO_RAG.labels(status="error_empty_file").inc()
             raise ValueError("File is empty")
             
         # Determine mime type
@@ -199,13 +244,16 @@ async def upload_to_rag(file_path, file_name):
             print(f"[UPLOAD_TO_RAG] Response status: {response.status_code}")
             if response.status_code == 200:
                 print(f"[UPLOAD_TO_RAG] Upload successful: {response.text}")
+                UPLOADS_TO_RAG.labels(status="success").inc()
                 return {"status": "success"}
             else:
                 print(f"[UPLOAD_TO_RAG] Upload failed: {response.text}")
+                UPLOADS_TO_RAG.labels(status="error_rag_server").inc()
                 raise Exception(f"Failed to upload to RAG: {response.text}")
                 
     except Exception as e:
         print(f"[UPLOAD_TO_RAG] EXCEPTION: Error uploading file {file_name} to RAG: {str(e)}")
+        UPLOADS_TO_RAG.labels(status="error_exception").inc()
         import traceback
         print(traceback.format_exc())
         raise e
@@ -216,22 +264,26 @@ async def get_courses(request: TokenRequest):
     """
     Gets a list of all the courses the user is enrolled in with their ids and names using just the token
     """
-    if not request.token:
-        raise HTTPException(status_code=400, detail="Missing token")
-    
+    ACTIVE_REQUESTS.inc()
     try:
-        client = CanvasClient(request.token)
-        courses = client.get_courses()
+        if not request.token:
+            raise HTTPException(status_code=400, detail="Missing token")
         
-        # Convert to the expected format (mapping of id to name)
-        course_dict = {}
-        for course in courses:
-            if "name" in course:
-                course_dict[str(course["id"])] = course["name"]
-        
-        return course_dict
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        try:
+            client = CanvasClient(request.token)
+            courses = client.get_courses()
+            
+            # Convert to the expected format (mapping of id to name)
+            course_dict = {}
+            for course in courses:
+                if "name" in course:
+                    course_dict[str(course["id"])] = course["name"]
+            
+            return course_dict
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 @app.post("/download_course")
 async def download_course(request: DownloadCourseRequest):
@@ -247,6 +299,9 @@ async def download_course(request: DownloadCourseRequest):
         raise HTTPException(status_code=400, detail="Missing course_id")
     if not token:
         raise HTTPException(status_code=400, detail="Missing token")
+    
+    # Increment active requests
+    ACTIVE_REQUESTS.inc()
     
     try:
         client = CanvasClient(token)
@@ -266,20 +321,30 @@ async def download_course(request: DownloadCourseRequest):
         
         # Create file list
         file_list = []
+        total_size = 0
         for file_info in course_materials.get("files", []):
             if "url" in file_info:
                 file_path = f"{course_dir}/files/{file_info.get('display_name', 'unknown')}"
+                file_size = file_info.get("size", 0)
+                total_size += file_size
+                
+                if file_size > 0:
+                    FILE_SIZES.observe(file_size)
+                
                 file_list.append({
                     "name": file_info.get("display_name", ""),
                     "path": file_path,
                     "type": file_info.get("content-type", ""),
-                    "size": file_info.get("size", 0),
+                    "size": file_size,
                     "url": file_info.get("url", "")
                 })
         
         # Save file list
         with open(f"{course_dir}/file_list.json", "w") as f:
             json.dump(file_list, f, indent=4)
+        
+        # Record metrics
+        COURSE_DOWNLOADS.labels(course_id=str(course_id)).inc()
             
         return {
             "message": f"Course {course_id} processed successfully",
@@ -287,6 +352,9 @@ async def download_course(request: DownloadCourseRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Decrement active requests
+        ACTIVE_REQUESTS.dec()
 
 @app.post("/get_documents")
 async def get_documents(request: GetDocumentsRequest):
@@ -303,6 +371,7 @@ async def get_documents(request: GetDocumentsRequest):
     if not token:
         raise HTTPException(status_code=400, detail="Missing token")
     
+    ACTIVE_REQUESTS.inc()
     try:
         client = CanvasClient(token)
         # Use the user_id from request if provided, otherwise use the one from the Canvas client
@@ -327,7 +396,13 @@ async def get_documents(request: GetDocumentsRequest):
                 
                 # Extract files from course info
                 files = course_info.get("files", [])
-                return [{"name": file.get("display_name", "")} for file in files]
+                file_list = [{"name": file.get("display_name", "")} for file in files]
+                
+                # Save file list
+                with open(file_list_path, "w") as f:
+                    json.dump(file_list, f, indent=4)
+                
+                return file_list
             else:
                 # If neither file list nor course info exists, download course info
                 course_materials = client.get_course_materials(course_id)
@@ -350,6 +425,8 @@ async def get_documents(request: GetDocumentsRequest):
                 return file_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 @app.post("/get_course_content")
 async def get_course_content(request: GetCourseContentRequest):
@@ -369,6 +446,7 @@ async def get_course_content(request: GetCourseContentRequest):
     if not content_type:
         raise HTTPException(status_code=400, detail="Missing content_type")
     
+    ACTIVE_REQUESTS.inc()
     try:
         client = CanvasClient(token)
         # Use the user_id from request if provided, otherwise use the one from the Canvas client
@@ -402,6 +480,8 @@ async def get_course_content(request: GetCourseContentRequest):
         return content
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 @app.post("/upload_selected_to_rag")
 async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
@@ -410,6 +490,8 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
     """
     print(f"[UPLOAD_SELECTED_TO_RAG] Starting request with {len(request.selected_items)} items")
     print(f"[UPLOAD_SELECTED_TO_RAG] Course ID: {request.course_id}, User ID: {request.user_id}")
+    
+    ACTIVE_REQUESTS.inc()
     
     try:
         course_id = request.course_id
@@ -422,6 +504,7 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
             return {"status": "error", "message": "Missing required parameters"}
         
         success_count = 0
+        failed_count = 0
         failed_items = []
         
         # Process each selected item
@@ -474,6 +557,7 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                         "name": item_name,
                         "error": "No content ID available"
                     })
+                    failed_count += 1
                     continue
                 
                 # Determine the appropriate extension
@@ -490,7 +574,7 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                 try:
                     response = await get_course_item_content(
                         course_id=course_id, 
-                        item_id=item_id,  # Changed from content_id to item_id
+                        item_id=item_id,
                         item_type=item_type, 
                         token=token
                     )
@@ -553,7 +637,12 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     "name": item.name,
                     "error": str(e)
                 })
+                failed_count += 1
                 # Continue with the next item
+        
+        # Update metrics
+        UPLOADS_TO_RAG.labels(status="total_success").inc(success_count)
+        UPLOADS_TO_RAG.labels(status="total_failure").inc(failed_count)
         
         final_result = {
             "status": "success",
@@ -569,6 +658,8 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
         import traceback
         print(traceback.format_exc())
         return {"status": "error", "message": str(e)}
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 @app.post("/download_and_upload_to_rag")
 async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
@@ -579,6 +670,8 @@ async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
         raise HTTPException(status_code=400, detail="URL is required")
     if not request.token:
         raise HTTPException(status_code=400, detail="Token is required")
+    
+    ACTIVE_REQUESTS.inc()
     
     try:
         # Create a temporary file
@@ -622,6 +715,11 @@ async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
             if not file_name.endswith(file_extension):
                 file_name += file_extension
             
+            # Get file size for metrics
+            file_size = os.path.getsize(temp_file_path)
+            if file_size > 0:
+                FILE_SIZES.observe(file_size)
+            
             # Upload to RAG
             rag_response = await upload_to_rag(temp_file_path, file_name)
             
@@ -637,6 +735,8 @@ async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 # Add endpoint for getting course item content directly from course_info.json
 @app.get("/get_course_item")
@@ -644,8 +744,12 @@ async def get_course_item(course_id: str, content_id: str, item_type: str, token
     """
     Get content for a specific course item by ID and type
     """
-    print(f"get_course_item called with: course_id={course_id}, content_id={content_id}, item_type={item_type}")
-    return await get_course_item_content(course_id, content_id, item_type, token, filename)
+    ACTIVE_REQUESTS.inc()
+    try:
+        print(f"get_course_item called with: course_id={course_id}, content_id={content_id}, item_type={item_type}")
+        return await get_course_item_content(course_id, content_id, item_type, token, filename)
+    finally:
+        ACTIVE_REQUESTS.dec()
 
 @app.get("/download_module_item")
 async def download_module_item(course_id: str, module_id: str, item_id: str, token: str):
@@ -653,6 +757,7 @@ async def download_module_item(course_id: str, module_id: str, item_id: str, tok
     Download a specific module item from Canvas
     This endpoint handles downloads from course_info.json items
     """
+    ACTIVE_REQUESTS.inc()
     try:
         # First, get the module item details
         api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/modules/{module_id}/items/{item_id}"
@@ -731,23 +836,73 @@ async def download_module_item(course_id: str, module_id: str, item_id: str, tok
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        ACTIVE_REQUESTS.dec()
         
 @app.get("/user_info")
 async def get_user_info(token: str):
     """
     Get information about the current user
     """
-    if not token:
-        raise HTTPException(status_code=400, detail="Missing token")
-    
+    ACTIVE_REQUESTS.inc()
     try:
-        client = CanvasClient(token)
-        return {
-            "user_id": client.user_id,
-            "message": "User info retrieved successfully"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if not token:
+            raise HTTPException(status_code=400, detail="Missing token")
+        
+        try:
+            client = CanvasClient(token)
+            return {
+                "user_id": client.user_id,
+                "message": "User info retrieved successfully"
+            }
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        ACTIVE_REQUESTS.dec()
+
+@app.get("/metrics/health")
+async def metrics_health():
+    """
+    Simple health check endpoint for monitoring
+    """
+    return {
+        "status": "ok",
+        "service": "course_data_manager",
+        "timestamp": str(datetime.datetime.now())
+    }
+
+@app.get("/metrics/stats")
+async def metrics_stats():
+    """
+    Return basic statistics about the service
+    """
+    import glob
+    
+    # Count total courses downloaded
+    course_dirs = glob.glob("course_data/*/*")
+    total_courses = len(course_dirs)
+    
+    # Count total files processed
+    file_count = 0
+    total_file_size = 0
+    for course_dir in course_dirs:
+        file_list_path = f"{course_dir}/file_list.json"
+        if os.path.exists(file_list_path):
+            try:
+                with open(file_list_path) as f:
+                    file_list = json.load(f)
+                    file_count += len(file_list)
+                    for file_info in file_list:
+                        total_file_size += file_info.get("size", 0)
+            except:
+                pass
+    
+    return {
+        "total_courses": total_courses,
+        "total_files": file_count,
+        "total_file_size_bytes": total_file_size,
+        "active_requests": ACTIVE_REQUESTS._value.get(),
+    }
 
 @app.get("/")
 async def index():
