@@ -53,6 +53,31 @@ function speakText(text) {
   }
 }
 
+// function for speech-to-text
+function startSpeechRecognition(setInputMessage) {
+  // Set the input to "Listening..." immediately
+  setInputMessage("Listening...");
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.error("Speech recognition is not supported in this browser.");
+    return;
+  }
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (event) => {
+    const speechResult = event.results[0][0].transcript;
+    setInputMessage(speechResult);
+  };
+  recognition.onerror = (event) => {
+    console.error("Speech recognition error:", event.error);
+  };
+  recognition.start();
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -799,6 +824,11 @@ export default function ChatPage() {
                     {isLoading ? 'Sending...' : 'Send'}
                   </Button>
                 </form>
+                <div className="mt-2">
+                  <Button onClick={() => startSpeechRecognition(setInputMessage)} className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-sm">
+                    Start Speaking
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
