@@ -64,7 +64,7 @@ ragServer:
   
   env:
     EXAMPLE_PATH: 'src/'
-    APP_VECTORSTORE_URL: "http://nvidia-rag-demo-milvus:19530"
+    APP_VECTORSTORE_URL: "http://milvus-service:19530"
     APP_VECTORSTORE_NAME: "milvus"
     APP_VECTORSTORE_INDEXTYPE: "FLAT" #might be GPU_CAGRA
     COLLECTION_NAME: "nvidia_blogs"
@@ -154,7 +154,26 @@ ragPlayground:
     APP_SERVERURL: "http://{{ .Release.Name }}-rag-server"
     APP_SERVERPORT: "8081"
     APP_MODELNAME: "meta/llama-3.1-70b-instruct"
+etcd:
+  enabled: true
+  image:
+    repository: quay.io/coreos/etcd
+    tag: v3.5.5
+  service:
+    name: etcd-service
+    type: ClusterIP
+    port: 2379
 
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: RELEASE.2023-06-29T05-12-28Z
+  service:
+    name: minio-service
+    type: ClusterIP
+    ports:
+      api: 9000
 # Canvas API Configuration
 #need camden to help out here
 canvasApi:
@@ -243,38 +262,34 @@ persistence:
     accessModes: [ "ReadWriteOnce" ]
     size: 10Gi
 
-# Vector DB (Milvus) Configuration
+# Milvus Deployment - using Docker Hub image directly
 vectordb:
   enabled: true
   milvus:
-    mode: standalone  # Will be overridden by highAvailability value
-    persistence:
-      enabled: true
-      size: 20Gi
+    mode: standalone
+    image:
+      repository: bitnami/etcd
+      tag: 3.5.10
+    config:
+      etcdEndpoint: "nvidia-rag-server-demo-etcd:2379"
+      minioAddress: "nvidia-rag-server-demo-minio:9000"
     resources:
       requests:
-        cpu: 2
-        memory: 4Gi
+        cpu: 500m
+        memory: 1Gi
       limits:
-        cpu: 4
-        memory: 8Gi
-    
-    # Enterprise-specific Milvus configurations
-    # {{- if .Values.global.enterprise.highAvailability }}
-    # ha:
-    #   enabled: true
-    #   replicas: 2
-    # {{- end }}
-    
-    metrics:
-      enabled: true
-      serviceMonitor:
-        enabled: false #I set it to false for now / but you can set up monitoring if you have promethus operator installed
-    
-    # Retention policies
-    retentionPolicy:
-      enabled: true
-      maxAge: 90d  # 90 days retention
+        cpu: 1
+        memory: 2Gi
+    initContainers:
+      - name: milvus-init-wait
+        image: busybox
+        command: ["/bin/sh"]
+        args: ["-c", "echo 'Waiting for etcd and minio...' && sleep 30"]
+    env:
+      KNOWHERE_GPU_MEM_POOL_SIZE: "2048;4096"
+    service:
+      type: ClusterIP
+      port: 19530
 
 # NVIDIA API Configuration
 nvidiaApi:
@@ -307,3 +322,4 @@ secrets:
     name: nvidia-api-secret
     data:
       NVIDIA_API_KEY: <your-api-key-here>
+
