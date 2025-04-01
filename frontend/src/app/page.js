@@ -105,6 +105,8 @@ export default function ChatPage() {
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [downloadedCourses, setDownloadedCourses] = useState([]);
   const [persona, setPersona] = useState("formal");
+  const [ttsEnabled, setTTSEnabled] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -132,8 +134,6 @@ export default function ChatPage() {
       fetchCourses(savedToken);
     }
   }, [messages, streamingMessage]);
-
-
   
   // Check for downloaded courses whenever userId changes
   useEffect(() => {
@@ -141,6 +141,11 @@ export default function ChatPage() {
       checkDownloadedCourses();
     }
   }, [userId, tokenVerified]);
+
+  // Apply the dark class to <html> when isDarkMode changes
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, [isDarkMode]);
 
   const fetchDocuments = async () => {
     try {
@@ -425,7 +430,9 @@ export default function ChatPage() {
                     role: 'assistant',
                     content: accumulatedMessage
                   }]);
-                  speakText(accumulatedMessage);
+                  if (ttsEnabled) {
+                    speakText(accumulatedMessage);
+                  }
                   setStreamingMessage('');
                 }
                 break;
@@ -479,7 +486,7 @@ export default function ChatPage() {
   // Format the content for display
   const renderContent = () => {
     if (!courseContent) {
-      return <div className="text-center p-4 text-gray-500">No content to display</div>;
+      return <div className="text-center p-4 text-muted-foreground">No content to display</div>;
     }
     
     if (contentType === 'file_list') {
@@ -488,13 +495,13 @@ export default function ChatPage() {
           <h3 className="text-lg font-medium">Files in {courses[selectedCourse] || 'Selected Course'}</h3>
           <div className="grid gap-2">
             {courseContent.length === 0 ? (
-              <div className="p-4 border rounded-md bg-gray-50 text-center">No files available</div>
+              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No files available</div>
             ) : (
               courseContent.map((file, index) => (
-                <div key={index} className="p-3 border rounded-md bg-white hover:bg-gray-50 flex justify-between items-center">
+                <div key={index} className="p-3 border rounded-md bg-card hover:bg-muted flex justify-between items-center text-card-foreground">
                   <div>
                     <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-gray-500">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
+                    <p className="text-sm text-muted-foreground">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
                   </div>
                 </div>
               ))
@@ -510,17 +517,17 @@ export default function ChatPage() {
           <div>
             <h3 className="text-lg font-medium mb-2">Modules</h3>
             {courseContent.modules.length === 0 ? (
-              <div className="p-4 border rounded-md bg-gray-50 text-center">No modules available</div>
+              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No modules available</div>
             ) : (
               <div className="space-y-2">
                 {courseContent.modules.map((module, index) => (
-                  <div key={index} className="p-3 border rounded-md bg-white">
+                  <div key={index} className="p-3 border rounded-md bg-card text-card-foreground">
                     <p className="font-medium">{module.name}</p>
                     {module.items && module.items.length > 0 && (
                       <div className="ml-4 mt-2 space-y-1">
                         {module.items.map((item, itemIndex) => (
-                          <div key={itemIndex} className="text-sm p-2 border-l-2 border-orange-200">
-                            {item.title} <span className="text-gray-500">({item.type})</span>
+                          <div key={itemIndex} className="text-sm p-2 border-l-2 border-border text-foreground">
+                            {item.title} <span className="text-muted-foreground">({item.type})</span>
                           </div>
                         ))}
                       </div>
@@ -534,13 +541,17 @@ export default function ChatPage() {
           <div>
             <h3 className="text-lg font-medium mb-2">Pages</h3>
             {courseContent.pages.length === 0 ? (
-              <div className="p-4 border rounded-md bg-gray-50 text-center">No pages available</div>
+              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">
+                  No pages available
+              </div>
             ) : (
               <div className="grid gap-2">
                 {courseContent.pages.map((page, index) => (
-                  <div key={index} className="p-3 border rounded-md bg-white">
+                  <div key={index} className="p-3 border rounded-md bg-card text-card-foreground">
                     <p className="font-medium">{page.title}</p>
-                    <p className="text-sm text-gray-500">Last updated: {new Date(page.updated_at).toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Last updated: {new Date(page.updated_at).toLocaleString()}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -551,7 +562,7 @@ export default function ChatPage() {
     }
     
     return (
-      <pre className="p-4 bg-gray-50 rounded-md overflow-auto">
+      <pre className="p-4 bg-card text-card-foreground rounded-md overflow-auto">
         {JSON.stringify(courseContent, null, 2)}
       </pre>
     );
@@ -574,17 +585,17 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-100 via-white to-orange-50 p-4">
+    <div className="min-h-screen bg-background text-foreground p-4">
       {/* Title */}
       <div className="max-w-4xl mx-auto mb-6 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent"> 
           Virtual Teaching Assistant
         </h1>
       </div>
 
       {/* Canvas Integration Card */}
       <div className="max-w-4xl mx-auto mb-6">
-        <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+      <Card className="bg-card/80 backdrop-blur-sm border border-border">
           <CardContent className="p-6">
             <h2 className="text-xl font-semibold mb-4">Canvas Integration</h2>
             
@@ -611,7 +622,7 @@ export default function ChatPage() {
                 <Button 
                   onClick={verifyToken} 
                   disabled={isVerifyingToken || !canvasToken.trim()}
-                  className="whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white"
+                  className="whitespace-nowrap bg-primary hover:brightness-110 text-primary-foreground"
                 >
                   {isVerifyingToken ? 'Verifying...' : 'Confirm Token'}
                 </Button>
@@ -620,7 +631,7 @@ export default function ChatPage() {
             
             {/* User ID Display */}
             {userId && (
-              <div className="text-sm text-gray-600 mb-4">
+              <div className="text-sm text-muted-foreground mb-4">
                 Connected as User ID: {userId}
               </div>
             )}
@@ -656,7 +667,7 @@ export default function ChatPage() {
                 <Button
                   onClick={downloadCourse}
                   disabled={isDownloading || !selectedCourse || isFetchingCourses}
-                  className="whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white"
+                  className="whitespace-nowrap bg-primary hover:brightness-110 text-primary-foreground"
                 >
                   {isDownloading ? 'Downloading...' : downloadedCourses.includes(selectedCourse) ? 'Re-Download' : 'Download Course'}
                 </Button>
@@ -668,7 +679,7 @@ export default function ChatPage() {
 
       {/* Settings Card */}
       <div className="max-w-4xl mx-auto mb-6">
-        <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+      <Card className="bg-card/80 backdrop-blur-sm border border-border">
           <CardContent className="p-6">
             <h2 className="text-xl font-semibold mb-4">Chat Settings</h2>
             
@@ -681,6 +692,18 @@ export default function ChatPage() {
                 />
                 <Label htmlFor="kb-mode">Use Knowledge Base</Label>
               </div>
+              {/* TTS on/off switch */}
+              <div className="flex items-center space-x-2">
+                <Switch id="tts-mode" checked={ttsEnabled} onCheckedChange={setTTSEnabled} />
+                <Label htmlFor="tts-mode">Enable Text-to-Speech</Label>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setIsDarkMode(prev => !prev)}
+                className="whitespace-nowrap"
+              >
+                {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              </Button>
               
               <div className="flex-1">
                 <Select onValueChange={handleEdgeCaseSelect} value={selectedEdgeCase}>
@@ -777,7 +800,7 @@ export default function ChatPage() {
           
           {/* Chat Tab */}
           <TabsContent value="chat">
-            <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+            <Card className="bg-card/80 backdrop-blur-sm border border-border">
               <CardContent className="p-6">
                 <ScrollArea className="h-[600px] mb-4 pr-4">
                   {messages.map((message, index) => (
@@ -790,8 +813,8 @@ export default function ChatPage() {
                       <div
                         className={`inline-block max-w-[80%] p-4 rounded-lg shadow-sm ${
                           message.role === 'user'
-                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                            : 'bg-white text-gray-800 border border-orange-100'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-card text-card-foreground border border-border'
                         }`}
                       >
                         {message.content}
@@ -800,7 +823,7 @@ export default function ChatPage() {
                   ))}
                   {streamingMessage && (
                     <div className="mb-4 text-left">
-                      <div className="inline-block max-w-[80%] p-4 rounded-lg bg-white text-gray-800 border border-orange-100 shadow-sm">
+                      <div className="inline-block max-w-[80%] p-4 rounded-lg bg-card text-card-foreground border border-border shadow-sm">
                         {streamingMessage}
                       </div>
                     </div>
@@ -813,19 +836,19 @@ export default function ChatPage() {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     placeholder="Type your message..."
-                    className="flex-grow bg-white/50"
+                    className="flex-grow bg-card/50 text-card-foreground"
                     disabled={isLoading}
                   />
                   <Button 
                     type="submit" 
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-sm"
+                    className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
                     disabled={isLoading}
                   >
                     {isLoading ? 'Sending...' : 'Send'}
                   </Button>
                 </form>
                 <div className="mt-2">
-                  <Button onClick={() => startSpeechRecognition(setInputMessage)} className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-sm">
+                  <Button onClick={() => startSpeechRecognition(setInputMessage)} className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm" >
                     Start Speaking
                   </Button>
                 </div>
@@ -835,7 +858,7 @@ export default function ChatPage() {
           
           {/* Course Content Tab */}
           <TabsContent value="content">
-            <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+            <Card className="bg-card/80 backdrop-blur-sm border border-border">
               <CardContent className="p-6">
                 <div className="mb-6">
                   <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -874,7 +897,7 @@ export default function ChatPage() {
                         variant={contentType === 'file_list' ? 'default' : 'outline'}
                         onClick={() => fetchCourseContent(selectedCourse, 'file_list')}
                         disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                        className={contentType === 'file_list' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                        className={contentType === 'file_list' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
                       >
                         Files
                       </Button>
@@ -890,9 +913,9 @@ export default function ChatPage() {
                   </div>
                   
                   {downloadedCourses.length === 0 && (
-                    <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-lg text-gray-600">No courses have been downloaded yet.</p>
-                      <p className="text-sm text-gray-500 mt-2">Download a course to view its content here.</p>
+                    <div className="text-center p-8 bg-card rounded-lg border border-border text-card-foreground">
+                      <p className="text-lg">No courses have been downloaded yet.</p>
+                      <p className="text-sm text-muted-foreground mt-2">Download a course to view its content here.</p>
                     </div>
                   )}
                   
@@ -901,7 +924,7 @@ export default function ChatPage() {
                       <ScrollArea className="h-[500px] pr-4">
                         {isLoadingContent ? (
                           <div className="flex justify-center items-center h-64">
-                            <p className="text-gray-500">Loading content...</p>
+                            <p className="text-muted-foreground">Loading content...</p>
                           </div>
                         ) : (
                           renderContent()
