@@ -176,7 +176,7 @@ class Prompt(BaseModel):
     #sets default persona
     persona: str = Field(
         default="formal",
-        description="The personality of the assistant. Options: formal, casual, drill_sergeant."
+        description="The personality of the assistant. Options: formal, casual, drill_sergeant, enthusiastic, supportive, meme_lord, humorous."
     )
 
     # seed: int = Field(42, description="If specified, our system will make a best effort to sample deterministically,
