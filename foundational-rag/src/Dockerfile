@@ -13,6 +13,11 @@ RUN apt update && \
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 RUN rm -rf /var/lib/apt/lists/*
 
+# Ensure clean install of pdfminer.six
+RUN pip uninstall pdfminer -y && \
+    pip uninstall pdfminer.six -y && \
+    pip install pdfminer.six==20221105
+
 # Install build dependencies before pip install
 RUN apt update && apt install -y \
     build-essential \
