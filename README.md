@@ -3,13 +3,28 @@
   SPDX-License-Identifier: Apache-2.0
 -->
 
-# Get Started With AI Blueprint: RAG
+# Get Started With VTA Blueprint:
 
 Use the following documentation to get started with the NVIDIA RAG Blueprint.
-
+- [Introduction](#introduction)
 - [Obtain an API Key](#obtain-an-api-key)
 - [Deploy With Docker Compose](#deploy-with-docker-compose)
 
+
+## Introduction
+Everything is run via docker containers, with docker compose. 
+
+### Folder Structure:
+- `course_manager_api`: A single container for the Course Manager API. This is an API that allows you to download courses from Canvas and store them locally.
+- `deploy/compose`: Docker Compose files for running the application
+- `foundational-rag`: Foundational RAG application from NVIDIA that has containers:
+   - rag-server
+   - rag-playground
+   - milvus-standalone
+   - milvus-etcd
+   - milvus-minio
+- `prometheus`: Singular container for Prometheus service for monitoring
+- `frontend`: Singular container with Next.js frontend for the application
 
 
 ## Obtain an API Key
@@ -78,17 +93,6 @@ To start the containers using on-premises models, use the procedure in the next 
    docker compose -f deploy/compose/docker-compose.yaml up -d
    ```
 
-   *Example Output*
-
-   ```output
-    ✔ Network nvidia-rag           Created
-    ✔ Container rag-playground     Started
-    ✔ Container milvus-minio       Started
-    ✔ Container rag-server         Started
-    ✔ Container milvus-etcd        Started
-    ✔ Container milvus-standalone  Started
-   ```
-
    [!TIP]
    You can add a `--build` argument in case you have made some code changes or have any requirement of re-building containers from source code:
 
@@ -113,65 +117,6 @@ To start the containers using on-premises models, use the procedure in the next 
    57a068d62fbb   milvus-etcd         Up 3 minutes (healthy)
    ```
 
-1. Open a web browser and access `http://localhost:8090` to use the RAG Playground. You can use the upload tab to ingest files into the server or follow [the notebooks](../notebooks/) to understand the API usage.
-
-
-### Start the Containers using on-prem models
-
-Use the following procedure to start the containers using on-premises models.
-
-[!IMPORTANT]
-To start the containers using cloud-hosted models, see the procedure in the previous section instead.
-
-1. Verify that you meet the [hardware requirements](../README.md#hardware-requirements).
-
-1. Export `NVIDIA_API_KEY` environment variable to pull the containers and models. Check the [Common Prerequisites](#common-prerequisites) section for the same.
-
-1. Create a directory to cache the models and export the path to the cache as an environment variable.
-
-   ```bash
-   mkdir -p ~/.cache/model-cache
-   export MODEL_DIRECTORY=~/.cache/model-cache
-   ```
-
-1. Export the connection information for the inference and retriever services. Replace the host address of the below URLs with workstation IPs, if the NIMs are deployed in a different workstation or outside the `nvidia-rag` docker network on the same system.
-
-   ```bash
-   export APP_LLM_SERVERURL="nemollm-inference:8000"
-   export APP_EMBEDDINGS_SERVERURL="embedding-ms:8000"
-   export APP_RANKING_SERVERURL="ranking-ms:8000"
-   ```
-
-   [!TIP]: To change the GPUs used for NIM deployment, set the following environment variables before triggering the docker compose. You can check available GPU details on your system using `nvidia-smi`
-
-   ```bash
-   LLM_MS_GPU_ID: Update this to specify the LLM GPU IDs (e.g., 0,1,2,3).
-   EMBEDDING_MS_GPU_ID: Change this to set the embedding GPU ID.
-   RANKING_MS_GPU_ID: Modify this to adjust the reranking LLM GPU ID.
-   RANKING_MS_GPU_ID: Modify this to adjust the reranking LLM GPU ID.
-   VECTORSTORE_GPU_DEVICE_ID : Modify to adjust the Milvus vector database GPU ID. This is applicable only if GPU acceleration is enabled for milvus.
-   ```
-
-1. Start the containers. Ensure all containers go into `up` status before testing. The NIM containers may take around 10-15 mins to start at first launch. The models are downloaded and cached in the path specified by `MODEL_DIRECTORY`.
-
-    ```bash
-    USERID=$(id -u) docker compose -f deploy/compose/docker-compose.yaml --profile local-nim up -d
-    ```
-
-   *Example Output*
-
-   ```output
-   ✔ Container milvus-minio                           Running
-   ✔ Container rag-server                             Running
-   ✔ Container nemo-retriever-embedding-microservice  Running
-   ✔ Container milvus-etcd                            Running
-   ✔ Container nemollm-inference-microservice         Running
-   ✔ Container nemollm-retriever-ranking-microservice Running
-   ✔ Container rag-playground                         Running
-   ✔ Container milvus-standalone                      Running
-   ```
-
-1. Open a web browser and access `http://localhost:8090` to use the RAG Playground. You can use the upload tab to ingest files into the server or follow [the notebooks](../notebooks/) to understand the API usage.
-
+1. Open a web browser and access `http://localhost:8090` to use the RAG Playground, or go to `http://localhost:3000` to use the frontend for the canvas application. the RAG playground is more for testing the chatbot, and the frontend is for the canvas integration with the chatbot.
 
 
