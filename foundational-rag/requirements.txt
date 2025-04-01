@@ -12,7 +12,8 @@ langchain==0.3.7
 langchain-community==0.3.7
 pymilvus==2.4.9
 python-multipart==0.0.18
-unstructured[all-docs]==0.16.11
+unstructured==0.16.11
+unstructured-client==0.14.3
 uvicorn[standard]==0.32.0
 pydantic==2.9.2
 PyYAML==6.0.2
