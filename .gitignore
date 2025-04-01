@@ -1,2 +1,4 @@
 .env.local
 .DS_Store
+
+deploy/compose/volumes
