@@ -428,7 +428,7 @@ class UnstructuredRAG(BaseExample):
         try:
             # Load raw documents from the directory
             _path = data_dir
-            raw_documents = UnstructuredFileLoader(_path).load()
+            raw_documents = UnstructuredLoader(_path).load()
 
             if raw_documents:
                 global TEXT_SPLITTER  # pylint: disable=W0603
