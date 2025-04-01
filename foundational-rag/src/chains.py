@@ -441,6 +441,11 @@ class UnstructuredRAG(BaseExample):
                 logger.info(f"Using text splitter instance: {TEXT_SPLITTER}")
                 documents = TEXT_SPLITTER.split_documents(raw_documents)
                 vs = get_vectorstore(VECTOR_STORE, document_embedder, collection_name)
+
+                for doc in documents:
+                    if "languages" in doc.metadata:
+                        # Convert to string if it's not already
+                        doc.metadata["languages"] = str(doc.metadata["languages"])
                 # ingest documents into vectorstore
                 vs.add_documents(documents)
             else:
