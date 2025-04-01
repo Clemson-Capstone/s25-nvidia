@@ -17,7 +17,8 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN pip uninstall pdfminer -y && \
     pip uninstall pdfminer.six -y && \
     pip install pdfminer.six==20221105
-
+# Updated Langchain
+    RUN pip3 install --no-cache-dir langchain-unstructured
 # Install build dependencies before pip install
 RUN apt update && apt install -y \
     build-essential \

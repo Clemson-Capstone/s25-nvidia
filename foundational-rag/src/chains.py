@@ -21,7 +21,7 @@ from typing import Dict
 from typing import Generator
 from typing import List
 
-from langchain_community.document_loaders import UnstructuredFileLoader
+from langchain_unstructured import UnstructuredLoader
 from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.prompts import MessagesPlaceholder
 from langchain_core.prompts.chat import ChatPromptTemplate
@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 # Define the quiz response prompt template
 quiz_response_template = """
         Based on the following quiz question, DO NOT provide or hint at the correct answer.
-        Instead, explain the underlying concep\ts to help understanding.
+        Instead, explain the underlying concepts to help understanding.
         
         Question: {question}
         
@@ -87,7 +87,7 @@ async def quiz_response(context: dict, llm: BaseLLM):
         chain = prompt_template | llm | output_parser
         
         # Invoke the chain to generate a response
-        raw_answer = await chain.ainvoke(input_variables)
+        raw_documents = UnstructuredLoader(_path).load()
         formatted_answer = raw_answer.replace("\n\n", "<br><br>").replace("\n", "<br>")
         logger.info(f"Generated quiz response: {formatted_answer}")
         
