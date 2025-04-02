@@ -607,13 +607,13 @@ class UnstructuredRAG(BaseExample):
         elif persona == "drill_sergeant":
             personality_instructions = prompts.get("drill_sergeant_persona", "")
         elif persona == "enthusiastic":
-            personality_instructions = config.personas.enthusiastic
+            personality_instructions = prompts.get("enthusiastic_persona", "")
         elif persona == "supportive":
-            personality_instructions = config.personas.supportive
+            personality_instructions = prompts.get("supportive_persona", "")
         elif persona == "meme_lord":
-            personality_instructions = config.personas.meme_lord
+            personality_instructions = prompts.get("meme_lord_persona", "")
         elif persona == "humorous":
-            personality_instructions = config.personas.humorous
+            personality_instructions = prompts.get("humorous_persona", "")
         else:
             personality_instructions = ""  # default to no extra instructions if unknown
 
