@@ -1,13 +1,16 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -15,14 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 
-import edgeCases from '@/app/data/edgecase_dataset.json';
+import CanvasIntegration from '@/components/CanvasIntegration';
+import ChatSettings from '@/components/ChatSettings';
+import ChatInterface from '@/components/ChatInterface';
+import KnowledgeBase from '@/components/KnowledgeBase';
 
 // function for text-to-speech
 function speakText(text) {
@@ -79,18 +79,17 @@ function startSpeechRecognition(setInputMessage) {
 }
 
 export default function ChatPage() {
+  // State variables
   const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState('');
   const [documents, setDocuments] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [streamingMessage, setStreamingMessage] = useState('');
-  const [useKnowledgeBase, setUseKnowledgeBase] = useState(false);
-  const [canvasToken, setCanvasToken] = useState('');
+  const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
   const [selectedEdgeCase, setSelectedEdgeCase] = useState(null);
-  const messagesEndRef = useRef(null);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
-  // New state variables
+  // Canvas-related state variables
+  const [canvasToken, setCanvasToken] = useState('');
   const [userId, setUserId] = useState('');
   const [courses, setCourses] = useState({});
   const [selectedCourse, setSelectedCourse] = useState('');
@@ -98,22 +97,26 @@ export default function ChatPage() {
   const [isFetchingCourses, setIsFetchingCourses] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [tokenVerified, setTokenVerified] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('chat');
-  const [courseContent, setCourseContent] = useState(null);
-  const [contentType, setContentType] = useState('file_list');
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [downloadedCourses, setDownloadedCourses] = useState([]);
   const [persona, setPersona] = useState("formal");
   const [ttsEnabled, setTTSEnabled] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  
+  // Course content state variables
+  const [courseContent, setCourseContent] = useState(null);
+  const [contentType, setContentType] = useState('file_list');
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [selectedItems, setSelectedItems] = useState({});
+  const [processingFiles, setProcessingFiles] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedTab, setSelectedTab] = useState('files');
+  
+  // UI state variables
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('chat');
 
   useEffect(() => {
-    scrollToBottom();
     fetchDocuments();
     
     // Load token and userId from localStorage if available
@@ -133,7 +136,7 @@ export default function ChatPage() {
     if (savedToken && savedUserId) {
       fetchCourses(savedToken);
     }
-  }, [messages, streamingMessage]);
+  }, []);
   
   // Check for downloaded courses whenever userId changes
   useEffect(() => {
@@ -147,6 +150,13 @@ export default function ChatPage() {
     document.documentElement.classList.toggle("dark", isDarkMode);
   }, [isDarkMode]);
 
+  // Reset selected items when course content changes
+  useEffect(() => {
+    if (courseContent) {
+      initializeSelectedItems();
+    }
+  }, [courseContent, contentType, selectedTab]);
+
   const fetchDocuments = async () => {
     try {
       const response = await fetch('http://localhost:8081/documents');
@@ -156,6 +166,35 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Error fetching documents:', error);
     }
+  };
+
+  // Initialize selected items based on current content
+  const initializeSelectedItems = () => {
+    const newSelectedItems = {};
+    
+    if (selectedTab === 'files' && Array.isArray(courseContent)) {
+      courseContent.forEach((item, index) => {
+        newSelectedItems[`file_${index}`] = false;
+      });
+    } else if (selectedTab === 'structure' && courseContent) {
+      // For modules and pages
+      if (courseContent.modules) {
+        courseContent.modules.forEach((module, moduleIndex) => {
+          if (module.items) {
+            module.items.forEach((item, itemIndex) => {
+              newSelectedItems[`module_${moduleIndex}_item_${itemIndex}`] = false;
+            });
+          }
+        });
+      }
+      if (courseContent.pages) {
+        courseContent.pages.forEach((page, pageIndex) => {
+          newSelectedItems[`page_${pageIndex}`] = false;
+        });
+      }
+    }
+    
+    setSelectedItems(newSelectedItems);
   };
 
   // Verify Canvas token and get user ID
@@ -238,7 +277,6 @@ export default function ChatPage() {
     }
   };
 
-  // Download selected course
   // Check which courses have been downloaded
   const checkDownloadedCourses = async () => {
     if (!userId || !canvasToken) return;
@@ -359,12 +397,325 @@ export default function ChatPage() {
       const data = await response.json();
       setCourseContent(data);
       setContentType(type);
+      
+      // Update the tab based on content type
+      if (type === 'file_list') {
+        setSelectedTab('files');
+      } else if (type === 'course_info') {
+        setSelectedTab('structure');
+      }
     } catch (error) {
       console.error('Error fetching course content:', error);
       setError(error.message || 'Failed to fetch course content');
     } finally {
       setIsLoadingContent(false);
     }
+  };
+
+  // Toggle item selection
+  const toggleItemSelection = (itemKey) => {
+    setSelectedItems(prev => ({
+      ...prev,
+      [itemKey]: !prev[itemKey]
+    }));
+  };
+
+  // Get total selected items
+  const getTotalSelectedItems = () => {
+    return Object.values(selectedItems).filter(Boolean).length;
+  };
+
+  // Upload selected items to RAG knowledge base
+  const uploadSelectedToRAG = async () => {
+    const selectedCount = getTotalSelectedItems();
+    if (selectedCount === 0) {
+      setError('Please select at least one item to upload to knowledge base');
+      return;
+    }
+    
+    setIsProcessing(true);
+    setError('');
+    setSuccessMessage('');
+    
+    // Collect the selected items
+    const itemsToUpload = [];
+    
+    // Process files tab
+    if (selectedTab === 'files' && Array.isArray(courseContent)) {
+      courseContent.forEach((file, index) => {
+        const key = `file_${index}`;
+        if (selectedItems[key]) {
+          // Extract file ID from the URL if available
+          let fileId = null;
+          if (file.url) {
+            const matches = file.url.match(/\/files\/(\d+)/);
+            if (matches && matches[1]) {
+              fileId = matches[1];
+            }
+          } else if (file.id) {
+            fileId = file.id;
+          }
+          
+          itemsToUpload.push({
+            name: file.name,
+            type: 'file',
+            id: fileId,
+            courseId: selectedCourse
+          });
+        }
+      });
+    } 
+    // Process structure tab
+    else if (selectedTab === 'structure' && courseContent) {
+      // Handle modules
+      if (courseContent.modules) {
+        courseContent.modules.forEach((module, moduleIndex) => {
+          if (module.items) {
+            module.items.forEach((item, itemIndex) => {
+              const key = `module_${moduleIndex}_item_${itemIndex}`;
+              if (selectedItems[key]) {
+                itemsToUpload.push({
+                  name: item.title,
+                  type: item.type.toLowerCase(),
+                  id: item.content_id,
+                  courseId: selectedCourse
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Handle pages
+      if (courseContent.pages) {
+        courseContent.pages.forEach((page, pageIndex) => {
+          const key = `page_${pageIndex}`;
+          if (selectedItems[key]) {
+            itemsToUpload.push({
+              name: page.title,
+              type: 'page',
+              id: page.url.split('/').pop(), // Extract page ID from URL
+              courseId: selectedCourse
+            });
+          }
+        });
+      }
+    }
+    
+    // Update UI to show upload progress
+    setProcessingFiles(itemsToUpload.map(item => ({
+      name: item.name,
+      progress: 0,
+      status: 'uploading'
+    })));
+    
+    try {
+      // Call the backend to upload all selected items to RAG
+      const response = await fetch('http://localhost:8012/upload_selected_to_rag', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          course_id: selectedCourse,
+          token: canvasToken,
+          user_id: userId,
+          selected_items: itemsToUpload
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload items to knowledge base');
+      }
+      
+      const data = await response.json();
+      
+      // Update UI with success
+      setSuccessMessage(`Successfully uploaded ${data.message}`);
+      
+      if (data.failed_items && data.failed_items.length > 0) {
+        setError(`Failed to upload ${data.failed_items.length} items. Please try again.`);
+      }
+      
+      // Update the processing files status
+      setProcessingFiles(prev => prev.map(file => ({
+        ...file,
+        progress: 100,
+        status: 'complete'
+      })));
+      
+      // Refresh the knowledge base document list
+      fetchDocuments();
+      
+      // Clear the processing files after a delay
+      setTimeout(() => {
+        setProcessingFiles([]);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error uploading to knowledge base:', error);
+      setError(error.message || 'Failed to upload to knowledge base');
+      
+      // Update processing status to error
+      setProcessingFiles(prev => prev.map(file => ({
+        ...file,
+        status: 'error'
+      })));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Render progress files
+  const renderProcessingFiles = () => {
+    if (processingFiles.length === 0) return null;
+    
+    return (
+      <div className="mt-4 mb-4 space-y-4 p-4 border rounded-md bg-gray-50">
+        <h3 className="text-md font-medium">Processing Files</h3>
+        {processingFiles.map((file, index) => (
+          <div key={index} className="space-y-1">
+            <div className="flex justify-between">
+              <div className="flex items-center">
+                <span className="mr-2">{file.name}</span>
+                <Badge 
+                  className={
+                    file.status === 'complete' ? 'bg-green-100 text-green-800' :
+                    file.status === 'error' ? 'bg-red-100 text-red-800' :
+                    file.status === 'uploading' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }
+                >
+                  {file.status === 'complete' ? 'Complete' :
+                   file.status === 'error' ? 'Failed' :
+                   file.status === 'uploading' ? 'Uploading' :
+                   'Queued'}
+                </Badge>
+              </div>
+              <span className="text-sm">{Math.round(file.progress)}%</span>
+            </div>
+            <Progress value={file.progress} max={100} className="h-2" />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render Canvas files
+  const renderCanvasFiles = () => {
+    if (!courseContent || !Array.isArray(courseContent)) {
+      return (
+        <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-lg text-gray-600">No files available</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-2">
+        {courseContent.map((file, index) => (
+          <div 
+            key={index} 
+            className="p-3 border rounded-md bg-white hover:bg-gray-50 flex items-center"
+          >
+            <div className="flex-shrink-0 mr-3">
+              <Checkbox 
+                id={`file-${index}`} 
+                checked={selectedItems[`file_${index}`] || false}
+                onCheckedChange={() => toggleItemSelection(`file_${index}`)}
+              />
+            </div>
+            <div className="flex-grow">
+              <Label htmlFor={`file-${index}`} className="font-medium cursor-pointer">
+                {file.name}
+              </Label>
+              <p className="text-sm text-gray-500">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render Canvas course structure
+  const renderCanvasStructure = () => {
+    if (!courseContent || !courseContent.modules || !courseContent.pages) {
+      return (
+        <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
+          <p className="text-lg text-gray-600">No course structure available</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-6">
+        {/* Modules */}
+        <div>
+          <h3 className="text-lg font-medium mb-2">Modules</h3>
+          {courseContent.modules.length === 0 ? (
+            <div className="p-4 border rounded-md bg-gray-50 text-center">No modules available</div>
+          ) : (
+            <div className="space-y-2">
+              {courseContent.modules.map((module, moduleIndex) => (
+                <div key={moduleIndex} className="p-3 border rounded-md bg-white">
+                  <p className="font-medium">{module.name}</p>
+                  {module.items && module.items.length > 0 && (
+                    <div className="ml-4 mt-2 space-y-1">
+                      {module.items.map((item, itemIndex) => (
+                        <div key={itemIndex} className="flex items-center p-2 border-l-2 border-orange-200">
+                          <div className="flex-shrink-0 mr-3">
+                            <Checkbox 
+                              id={`module-${moduleIndex}-item-${itemIndex}`} 
+                              checked={selectedItems[`module_${moduleIndex}_item_${itemIndex}`] || false}
+                              onCheckedChange={() => toggleItemSelection(`module_${moduleIndex}_item_${itemIndex}`)}
+                            />
+                          </div>
+                          <Label 
+                            htmlFor={`module-${moduleIndex}-item-${itemIndex}`} 
+                            className="cursor-pointer"
+                          >
+                            {item.title} <span className="text-gray-500">({item.type})</span>
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* Pages */}
+        <div>
+          <h3 className="text-lg font-medium mb-2">Pages</h3>
+          {courseContent.pages.length === 0 ? (
+            <div className="p-4 border rounded-md bg-gray-50 text-center">No pages available</div>
+          ) : (
+            <div className="space-y-2">
+              {courseContent.pages.map((page, pageIndex) => (
+                <div key={pageIndex} className="p-3 border rounded-md bg-white flex items-center">
+                  <div className="flex-shrink-0 mr-3">
+                    <Checkbox 
+                      id={`page-${pageIndex}`} 
+                      checked={selectedItems[`page_${pageIndex}`] || false}
+                      onCheckedChange={() => toggleItemSelection(`page_${pageIndex}`)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`page-${pageIndex}`} className="font-medium cursor-pointer">
+                      {page.title}
+                    </Label>
+                    <p className="text-sm text-gray-500">Last updated: {new Date(page.updated_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -374,8 +725,8 @@ export default function ChatPage() {
 
     if (!inputMessage.trim()) return;
 
-    if (useKnowledgeBase && !canvasToken) {
-      setError('Canvas access token is required when using knowledge base');
+    if (useKnowledgeBase && documents.length === 0) {
+      setError('No documents in knowledge base. Please upload course content first.');
       return;
     }
 
@@ -393,8 +744,13 @@ export default function ChatPage() {
       const requestBody = {
         messages: [...messages, newMessage],
         use_knowledge_base: useKnowledgeBase,
-        canvas_token: useKnowledgeBase ? canvasToken : undefined,
-      	persona
+      	persona,
+        temperature: 0.7,
+        top_p: 0.8,
+        max_tokens: 1024,
+        top_k: 4,
+        collection_name: "",
+        model: ""
       };
       
       const response = await fetch('http://localhost:8081/generate', {
@@ -464,6 +820,7 @@ export default function ChatPage() {
   };
 
   const handleEdgeCaseSelect = (value) => {
+    const edgeCases = require('@/app/data/edgecase_dataset.json');
     const selectedCase = edgeCases.find(c => c.id.toString() === value);
     if (selectedCase) {
       setInputMessage(selectedCase.user_input);
@@ -483,91 +840,6 @@ export default function ChatPage() {
     setSuccessMessage('Token and user data cleared');
   };
 
-  // Format the content for display
-  const renderContent = () => {
-    if (!courseContent) {
-      return <div className="text-center p-4 text-muted-foreground">No content to display</div>;
-    }
-    
-    if (contentType === 'file_list') {
-      return (
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Files in {courses[selectedCourse] || 'Selected Course'}</h3>
-          <div className="grid gap-2">
-            {courseContent.length === 0 ? (
-              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No files available</div>
-            ) : (
-              courseContent.map((file, index) => (
-                <div key={index} className="p-3 border rounded-md bg-card hover:bg-muted flex justify-between items-center text-card-foreground">
-                  <div>
-                    <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-muted-foreground">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      );
-    }
-    
-    if (contentType === 'course_info') {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-lg font-medium mb-2">Modules</h3>
-            {courseContent.modules.length === 0 ? (
-              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No modules available</div>
-            ) : (
-              <div className="space-y-2">
-                {courseContent.modules.map((module, index) => (
-                  <div key={index} className="p-3 border rounded-md bg-card text-card-foreground">
-                    <p className="font-medium">{module.name}</p>
-                    {module.items && module.items.length > 0 && (
-                      <div className="ml-4 mt-2 space-y-1">
-                        {module.items.map((item, itemIndex) => (
-                          <div key={itemIndex} className="text-sm p-2 border-l-2 border-border text-foreground">
-                            {item.title} <span className="text-muted-foreground">({item.type})</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-medium mb-2">Pages</h3>
-            {courseContent.pages.length === 0 ? (
-              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">
-                  No pages available
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                {courseContent.pages.map((page, index) => (
-                  <div key={index} className="p-3 border rounded-md bg-card text-card-foreground">
-                    <p className="font-medium">{page.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Last updated: {new Date(page.updated_at).toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <pre className="p-4 bg-card text-card-foreground rounded-md overflow-auto">
-        {JSON.stringify(courseContent, null, 2)}
-      </pre>
-    );
-  };
-  
   // Helper function to format file size
   const formatFileSize = (bytes) => {
     if (!bytes || isNaN(bytes)) return 'Unknown size';
@@ -593,166 +865,39 @@ export default function ChatPage() {
         </h1>
       </div>
 
-      {/* Canvas Integration Card */}
-      <div className="max-w-4xl mx-auto mb-6">
-      <Card className="bg-card/80 backdrop-blur-sm border border-border">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Canvas Integration</h2>
-            
-            {/* Canvas Token Input */}
-            <div className="flex flex-col md:flex-row gap-3 mb-4">
-              <Input
-                type="password"
-                placeholder="Canvas Access Token"
-                value={canvasToken}
-                onChange={(e) => setCanvasToken(e.target.value)}
-                disabled={isVerifyingToken || tokenVerified}
-                className="flex-1"
-              />
-              
-              {tokenVerified ? (
-                <Button 
-                  variant="outline"
-                  onClick={handleLogout}
-                  className="whitespace-nowrap"
-                >
-                  Clear Token
-                </Button>
-              ) : (
-                <Button 
-                  onClick={verifyToken} 
-                  disabled={isVerifyingToken || !canvasToken.trim()}
-                  className="whitespace-nowrap bg-primary hover:brightness-110 text-primary-foreground"
-                >
-                  {isVerifyingToken ? 'Verifying...' : 'Confirm Token'}
-                </Button>
-              )}
-            </div>
-            
-            {/* User ID Display */}
-            {userId && (
-              <div className="text-sm text-muted-foreground mb-4">
-                Connected as User ID: {userId}
-              </div>
-            )}
-            
-            {/* Course Selection - Always visible when token is verified */}
-            {tokenVerified && (
-              <div className="flex flex-col md:flex-row gap-3 items-center mb-4">
-                <div className="flex-1">
-                  <Select 
-                    value={selectedCourse} 
-                    onValueChange={setSelectedCourse}
-                    disabled={isFetchingCourses || !Object.keys(courses).length}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={isFetchingCourses ? "Loading courses..." : "Select a course"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.keys(courses).length === 0 ? (
-                        <SelectItem value="loading" disabled>
-                          {isFetchingCourses ? "Loading courses..." : "No courses available"}
-                        </SelectItem>
-                      ) : (
-                        Object.entries(courses).map(([id, name]) => (
-                          <SelectItem key={id} value={id}>
-                            {name} {downloadedCourses.includes(id) ? '(Downloaded)' : ''}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <Button
-                  onClick={downloadCourse}
-                  disabled={isDownloading || !selectedCourse || isFetchingCourses}
-                  className="whitespace-nowrap bg-primary hover:brightness-110 text-primary-foreground"
-                >
-                  {isDownloading ? 'Downloading...' : downloadedCourses.includes(selectedCourse) ? 'Re-Download' : 'Download Course'}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Canvas Integration */}
+      <CanvasIntegration 
+        canvasToken={canvasToken}
+        setCanvasToken={setCanvasToken}
+        isVerifyingToken={isVerifyingToken}
+        tokenVerified={tokenVerified}
+        userId={userId}
+        courses={courses}
+        selectedCourse={selectedCourse}
+        setSelectedCourse={setSelectedCourse}
+        isFetchingCourses={isFetchingCourses}
+        isDownloading={isDownloading}
+        downloadedCourses={downloadedCourses}
+        verifyToken={verifyToken}
+        handleLogout={handleLogout}
+        downloadCourse={downloadCourse}
+      />
 
-      {/* Settings Card */}
-      <div className="max-w-4xl mx-auto mb-6">
-      <Card className="bg-card/80 backdrop-blur-sm border border-border">
-          <CardContent className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Chat Settings</h2>
-            
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="kb-mode"
-                  checked={useKnowledgeBase}
-                  onCheckedChange={setUseKnowledgeBase}
-                />
-                <Label htmlFor="kb-mode">Use Knowledge Base</Label>
-              </div>
-              {/* TTS on/off switch */}
-              <div className="flex items-center space-x-2">
-                <Switch id="tts-mode" checked={ttsEnabled} onCheckedChange={setTTSEnabled} />
-                <Label htmlFor="tts-mode">Enable Text-to-Speech</Label>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setIsDarkMode(prev => !prev)}
-                className="whitespace-nowrap"
-              >
-                {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-              </Button>
-              
-              <div className="flex-1">
-                <Select onValueChange={handleEdgeCaseSelect} value={selectedEdgeCase}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select test case" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {edgeCases.map((testCase) => (
-                      <SelectItem key={testCase.id} value={testCase.id.toString()}>
-                        {testCase.category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {selectedEdgeCase && (
-                <Button 
-                  onClick={() => handleSubmit()}
-                  disabled={isLoading}
-                  className="whitespace-nowrap"
-                >
-                  Run Test Case
-                </Button>
-              )}
-            </div>
-	    {/* Persona Selection */}
-  	    <div className="flex items-center space-x-2">
-    	      <Label htmlFor="persona-select">Select Persona:</Label>
-  	    </div>
-  	    <div className="flex-1">
-    	      <Select value={persona} onValueChange={setPersona}>
-      	        <SelectTrigger id="persona-select">
-                  <SelectValue placeholder="Select a persona" />
-      	        </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="formal">Formal</SelectItem>
-                  <SelectItem value="casual">Casual</SelectItem>
-                  <SelectItem value="drill_sergeant">Drill Sergeant</SelectItem>
-                  <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
-                  <SelectItem value="supportive">Supportive</SelectItem>
-                  <SelectItem value="meme_lord">Meme Lord</SelectItem>
-                  <SelectItem value="humorous">Humorous</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Chat Settings */}
+      <ChatSettings 
+        useKnowledgeBase={useKnowledgeBase}
+        setUseKnowledgeBase={setUseKnowledgeBase}
+        ttsEnabled={ttsEnabled}
+        setTTSEnabled={setTTSEnabled}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        selectedEdgeCase={selectedEdgeCase}
+        handleEdgeCaseSelect={handleEdgeCaseSelect}
+        handleSubmit={handleSubmit}
+        isLoading={isLoading}
+        persona={persona}
+        setPersona={setPersona}
+      />
 
       {/* Status Messages */}
       {successMessage && (
@@ -773,22 +918,26 @@ export default function ChatPage() {
       )}
 
       {/* Loading Indicators */}
-      {(isFetchingCourses || isDownloading || isLoadingContent) && !error && !successMessage && (
+      {(isFetchingCourses || isDownloading || isLoadingContent || isProcessing) && !error && !successMessage && (
         <div className="max-w-4xl mx-auto mb-6">
           <Alert>
             <AlertDescription>
               {isFetchingCourses ? 'Fetching courses...' : 
                isDownloading ? 'Downloading course...' : 
+               isProcessing ? 'Processing files...' :
                'Loading course content...'}
             </AlertDescription>
           </Alert>
         </div>
       )}
 
+      {/* Processing Files */}
+      {renderProcessingFiles()}
+
       {/* Main Content Area with Tabs */}
       <div className="max-w-4xl mx-auto">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2 mb-4">
+          <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="chat">Chat</TabsTrigger>
             <TabsTrigger 
               value="content" 
@@ -796,64 +945,21 @@ export default function ChatPage() {
             >
               Course Content
             </TabsTrigger>
+            <TabsTrigger value="knowledge">
+              Knowledge Base
+            </TabsTrigger>
           </TabsList>
           
           {/* Chat Tab */}
           <TabsContent value="chat">
-            <Card className="bg-card/80 backdrop-blur-sm border border-border">
-              <CardContent className="p-6">
-                <ScrollArea className="h-[600px] mb-4 pr-4">
-                  {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`mb-4 ${
-                        message.role === 'user' ? 'text-right' : 'text-left'
-                      }`}
-                    >
-                      <div
-                        className={`inline-block max-w-[80%] p-4 rounded-lg shadow-sm ${
-                          message.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-card text-card-foreground border border-border'
-                        }`}
-                      >
-                        {message.content}
-                      </div>
-                    </div>
-                  ))}
-                  {streamingMessage && (
-                    <div className="mb-4 text-left">
-                      <div className="inline-block max-w-[80%] p-4 rounded-lg bg-card text-card-foreground border border-border shadow-sm">
-                        {streamingMessage}
-                      </div>
-                    </div>
-                  )}
-                  <div ref={messagesEndRef} />
-                </ScrollArea>
-
-                <form onSubmit={handleSubmit} className="flex gap-3">
-                  <Input
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-grow bg-card/50 text-card-foreground"
-                    disabled={isLoading}
-                  />
-                  <Button 
-                    type="submit" 
-                    className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? 'Sending...' : 'Send'}
-                  </Button>
-                </form>
-                <div className="mt-2">
-                  <Button onClick={() => startSpeechRecognition(setInputMessage)} className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm" >
-                    Start Speaking
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <ChatInterface 
+              messages={messages}
+              streamingMessage={streamingMessage}
+              inputMessage={inputMessage}
+              setInputMessage={setInputMessage}
+              handleSubmit={handleSubmit}
+              isLoading={isLoading}
+            />
           </TabsContent>
           
           {/* Course Content Tab */}
@@ -868,7 +974,7 @@ export default function ChatPage() {
                         onValueChange={(value) => {
                           setSelectedCourse(value);
                           if (downloadedCourses.includes(value)) {
-                            fetchCourseContent(value, contentType);
+                            fetchCourseContent(value, 'file_list');
                           }
                         }}
                         disabled={!downloadedCourses.length}
@@ -894,18 +1000,24 @@ export default function ChatPage() {
                     
                     <div className="flex gap-2">
                       <Button
-                        variant={contentType === 'file_list' ? 'default' : 'outline'}
-                        onClick={() => fetchCourseContent(selectedCourse, 'file_list')}
+                        variant={selectedTab === 'files' ? 'default' : 'outline'}
+                        onClick={() => {
+                          setSelectedTab('files');
+                          fetchCourseContent(selectedCourse, 'file_list');
+                        }}
                         disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                        className={contentType === 'file_list' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
+                        className={selectedTab === 'files' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
                       >
                         Files
                       </Button>
                       <Button
-                        variant={contentType === 'course_info' ? 'default' : 'outline'}
-                        onClick={() => fetchCourseContent(selectedCourse, 'course_info')}
+                        variant={selectedTab === 'structure' ? 'default' : 'outline'}
+                        onClick={() => {
+                          setSelectedTab('structure');
+                          fetchCourseContent(selectedCourse, 'course_info');
+                        }}
                         disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                        className={contentType === 'course_info' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                        className={selectedTab === 'structure' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
                       >
                         Course Structure
                       </Button>
@@ -921,20 +1033,50 @@ export default function ChatPage() {
                   
                   {selectedCourse && downloadedCourses.includes(selectedCourse) && (
                     <div className="mt-4">
-                      <ScrollArea className="h-[500px] pr-4">
+                      <ScrollArea className="h-[500px] pr-4 mb-4">
                         {isLoadingContent ? (
                           <div className="flex justify-center items-center h-64">
                             <p className="text-muted-foreground">Loading content...</p>
                           </div>
                         ) : (
-                          renderContent()
+                          selectedTab === 'files' ? renderCanvasFiles() : renderCanvasStructure()
                         )}
                       </ScrollArea>
+                      
+                      <div className="flex justify-between items-center mt-4">
+                        <div>
+                          <span className="font-medium">{getTotalSelectedItems()}</span> items selected
+                        </div>
+                        <Button
+                          disabled={getTotalSelectedItems() === 0 || isProcessing}
+                          onClick={uploadSelectedToRAG}
+                          className='bg-primary hover:brightness-110 text-primary-foreground'
+                        >
+                          {isProcessing ? 'Uploading...' : 'Upload Selected to Knowledge Base'}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          {/* Knowledge Base Tab */}
+          <TabsContent value="knowledge">
+            <KnowledgeBase 
+              documents={documents}
+              fetchDocuments={fetchDocuments}
+              setError={setError}
+              setSuccessMessage={setSuccessMessage}
+              canvasToken={canvasToken}
+              userId={userId}
+              courses={courses}
+              selectedCourse={selectedCourse}
+              setSelectedCourse={setSelectedCourse}
+              downloadedCourses={downloadedCourses}
+              formatFileSize={formatFileSize}
+            />
           </TabsContent>
         </Tabs>
       </div>

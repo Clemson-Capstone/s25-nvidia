@@ -1,0 +1,325 @@
+# Global settings
+global:
+  imageRegistry: nvcr.io
+  imagePullSecrets: 
+    - name: nvidia-registry-secret
+  storageClass: ""
+  nodeSelector:
+    kubernetes.io/os: linux
+  tolerations: []
+  affinity: {}
+  # Enterprise configuration
+  #setting false to test
+  enterprise:
+    enabled: false # Set to true for enterprise deployment
+    highAvailability: false # Enable for production deployments
+    monitoring:
+      enabled: false # Enable Prometheus metrics
+
+# RAG Server Configuration
+ragServer:
+  enabled: true
+  image:
+    repository: nvidia/blueprint/rag-server
+    tag: 1.0.0
+    pullPolicy: IfNotPresent
+  args: ["--port", "8081"]
+  # For enterprise HA configuration
+  replicaCount: 1  # Use at least 2 replicas for HA
+  
+  resources:
+    requests:
+      cpu: 2
+      memory: 4Gi
+      nvidia.com/gpu: 0 #setting to zero for now
+    limits:
+      cpu: 4
+      memory: 8Gi
+      nvidia.com/gpu: 0 #setting to zero for now
+      
+  # Pod Disruption Budget for HA
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  
+  # Autoscaling for enterprise workloads
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  
+  containerPorts:
+    http: 8081
+  
+  service:
+    type: ClusterIP
+    port: 8081
+  
+  env:
+    EXAMPLE_PATH: 'src/'
+    APP_VECTORSTORE_URL: "http://milvus-service:19530"
+    APP_VECTORSTORE_NAME: "milvus"
+    APP_VECTORSTORE_INDEXTYPE: "FLAT" #might be GPU_CAGRA
+    COLLECTION_NAME: "nvidia_blogs"
+    APP_RETRIEVER_SCORETHRESHOLD: "0.25"
+    # Use the models from NVIDIA API configuration
+    APP_LLM_MODELNAME: "{{ .Values.nvidiaApi.models.llm }}"
+    APP_EMBEDDINGS_MODELNAME: "{{ .Values.nvidiaApi.models.embedding }}"
+    APP_RANKING_MODELNAME: "{{ .Values.nvidiaApi.models.ranking }}"
+    # These are left empty because we're using NVIDIA API directly
+    APP_LLM_SERVERURL: ""
+    APP_EMBEDDINGS_SERVERURL: ""
+    APP_RANKING_SERVERURL: ""
+    VECTOR_DB_TOPK: "20"
+    APP_TEXTSPLITTER_CHUNKSIZE: "2000"
+    APP_TEXTSPLITTER_CHUNKOVERLAP: "200" 
+    APP_RETRIEVER_TOPK: "4"
+    LOGLEVEL: "INFO"
+    ENABLE_MULTITURN: "true"
+    ENABLE_QUERYREWRITER: "true" 
+    CONVERSATION_HISTORY: "5"
+    ENABLE_GUARDRAILS: "true"
+    GUARDRAILS_CONFIG_PATH: "/app/src/guardrails"
+    GUARDRAILS_TEMPERATURE: "0.2"
+    # Enterprise-specific environment variables
+    METRICS_ENABLED: "{{ .Values.global.enterprise.monitoring.enabled }}"
+    ENABLE_CACHING: "true"
+    API_RATE_LIMIT: "100"
+    API_TIMEOUT: "120"
+    RETRIES_ENABLED: "true"
+    MAX_RETRIES: "3"
+  
+  # Extra environment variables from secrets
+  env:
+    NVIDIA_API_KEY: "<your-api-key-here>"
+
+  
+  # Volume mounts
+  # volumeMounts:
+  #   - name: src-volume
+  #     mountPath: /app/src
+  #   - name: guardrails-volume
+  #     mountPath: /app/src/guardrails
+  #     readOnly: true
+  
+  # volumes:
+  #   - name: src-volume
+  #     persistentVolumeClaim:
+  #       claimName: src-pvc
+  #   - name: guardrails-volume
+  #     configMap:
+  #       name: guardrails-config
+
+# RAG Playground Configuration
+ragPlayground:
+  enabled: true
+  image:
+    repository: nvidia/blueprint/rag-playground
+    tag: 1.0.0
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  args: ["--port", "8090"]
+
+
+
+  resources:
+    requests:
+      cpu: 1
+      memory: 2Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+  
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  
+  containerPorts:
+    http: 8090
+  
+  service:
+    type: ClusterIP
+    port: 8090
+  
+  env:
+    APP_SERVERURL: "http://{{ .Release.Name }}-rag-server"
+    APP_SERVERPORT: "8081"
+    APP_MODELNAME: "meta/llama-3.1-70b-instruct"
+etcd:
+  enabled: true
+  image:
+    repository: quay.io/coreos/etcd
+    tag: v3.5.5
+  service:
+    name: etcd-service
+    type: ClusterIP
+    port: 2379
+
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: RELEASE.2023-06-29T05-12-28Z
+  service:
+    name: minio-service
+    type: ClusterIP
+    ports:
+      api: 9000
+# Canvas API Configuration
+#need camden to help out here
+canvasApi:
+  enabled: false
+  image:
+    repository: nothinghere
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  
+  resources:
+    requests:
+      cpu: 1
+      memory: 1Gi
+    limits:
+      cpu: 2
+      memory: 2Gi
+  
+  securityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+  
+  containerPorts:
+    http: 8012
+  
+  service:
+    type: ClusterIP
+    port: 8012
+  
+  env:
+    PYTHONUNBUFFERED: "1"
+  
+  volumeMounts:
+    - name: app-volume
+      mountPath: /app
+    - name: course-data-volume
+      mountPath: /app/course_data
+  
+  volumes:
+    - name: app-volume
+      persistentVolumeClaim:
+        claimName: canvas-app-pvc
+    - name: course-data-volume
+      persistentVolumeClaim:
+        claimName: course-data-pvc
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: rag.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: rag-server
+          port: 8081
+        - path: /playground
+          pathType: Prefix
+          service: rag-playground
+          port: 8090
+
+
+
+# Persistent Volume Claims
+persistence:
+  src:
+    enabled: true
+    accessModes: [ "ReadWriteOnce" ]
+    size: 10Gi
+  guardrails:
+    enabled: true
+    accessModes: [ "ReadWriteOnce" ]
+    size: 1Gi
+  canvasApp:
+    enabled: false
+    accessModes: [ "ReadWriteOnce" ]
+    size: 5Gi
+  courseData:
+    enabled: false
+    accessModes: [ "ReadWriteOnce" ]
+    size: 10Gi
+
+# Milvus Deployment - using Docker Hub image directly
+vectordb:
+  enabled: true
+  milvus:
+    mode: standalone
+    image:
+      repository: bitnami/etcd
+      tag: 3.5.10
+    config:
+      etcdEndpoint: "nvidia-rag-server-demo-etcd:2379"
+      minioAddress: "nvidia-rag-server-demo-minio:9000"
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1
+        memory: 2Gi
+    initContainers:
+      - name: milvus-init-wait
+        image: busybox
+        command: ["/bin/sh"]
+        args: ["-c", "echo 'Waiting for etcd and minio...' && sleep 30"]
+    env:
+      KNOWHERE_GPU_MEM_POOL_SIZE: "2048;4096"
+    service:
+      type: ClusterIP
+      port: 19530
+
+# NVIDIA API Configuration
+nvidiaApi:
+  enabled: true # Using NVIDIA API directly
+  models:
+    llm: "meta/llama-3.1-70b-instruct"
+    embedding: "nvidia/llama-3.2-nv-embedqa-1b-v2"
+    ranking: "nvidia/llama-3.2-nv-rerankqa-1b-v2"
+  # Reference to the secret containing the API key
+  secretName: "nvidia-api-secret"
+  secretKey: "NVIDIA_API_KEY"
+
+# External NIMS Configuration (when not using the API directly)
+externalNims:
+  enabled: false  # Disabled since we're using NVIDIA API directly
+  llm:
+    serviceUrl: ""
+  embedding:
+    serviceUrl: ""
+  ranking:
+    serviceUrl: ""
+
+# NIMS deployment - disabled since we're using NVIDIA API
+nims:
+  enabled: false
+
+# Secret for NVIDIA API Key
+secrets:
+  nvidiaapikey:
+    name: nvidia-api-secret
+    data:
+      NVIDIA_API_KEY: <your-api-key-here>
+

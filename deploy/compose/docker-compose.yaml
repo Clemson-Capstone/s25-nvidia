@@ -1,13 +1,16 @@
 include:
   - path: ./vectordb.yaml
   - path: ./nims.yaml
+  - path: ./frontend.yaml
+  - path: ./course-manager.yaml
+  - path: ./prometheus-compose.yaml
 
 services:
   rag-server:
     container_name: rag-server
     image: nvcr.io/nvidia/blueprint/rag-server:${TAG:-1.0.0}
     build:
-      context: ../..
+      context: ../../foundational-rag
       dockerfile: src/Dockerfile
     command: --port 8081 --host 0.0.0.0 --workers 8
     environment:
@@ -40,8 +43,8 @@ services:
     expose:
       - "8081"
     volumes:
-      - ../../src:/app/src
-      - ../../src/guardrails:/app/src/guardrails:ro
+      - ../../foundational-rag/src:/app/src
+      - ../../foundational-rag/src/guardrails:/app/src/guardrails:ro
     shm_size: 5gb
     depends_on:
       embedding-ms:
@@ -55,7 +58,7 @@ services:
     container_name: rag-playground
     image: nvcr.io/nvidia/blueprint/rag-playground:${TAG:-1.0.0}
     build:
-      context: ../..
+      context: ../../foundational-rag
       dockerfile: ./frontend/Dockerfile
     command: --port 8090
     environment:

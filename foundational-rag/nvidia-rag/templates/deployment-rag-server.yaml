@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nvidia-rag.ragServerName" . }}
+  labels:
+    {{- include "nvidia-rag.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-server
+spec:
+  replicas: {{ .Values.ragServer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "nvidia-rag.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rag-server
+  template:
+    metadata:
+      labels:
+        {{- include "nvidia-rag.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rag-server
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.ragServer.securityContext | nindent 8 }}
+      containers:
+        - name: rag-server
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.ragServer.image.repository }}:{{ .Values.ragServer.image.tag }}
+          imagePullPolicy: {{ .Values.ragServer.image.pullPolicy }}
+          args: ["--port", "8081", "--host", "0.0.0.0", "--workers", "8"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.ragServer.containerPorts.http }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.ragServer.resources | nindent 12 }}
+          env:
+            {{- range $key, $value := .Values.ragServer.env }}
+            - name: {{ $key }}
+              value: {{ tpl $value $ | quote }}
+            {{- end }}
+            # NVIDIA API Key from secret
+            # - name: NVIDIA_API_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: nvidia-api-secret
+            #       key: NVIDIA_API_KEY
+            # Add enterprise annotations if enabled
+            {{- if eq (include "nvidia-rag.enterprise" .) "true" }}
+            # NVIDIA API integration is managed through environment variables
+            # These are set in the env section with the appropriate model names
+            # The API key is handled via secret
+            {{- end }}
+          volumeMounts:
+            {{- toYaml .Values.ragServer.volumeMounts | nindent 12 }}
+      volumes:
+        {{- toYaml .Values.ragServer.volumes | nindent 8 }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
