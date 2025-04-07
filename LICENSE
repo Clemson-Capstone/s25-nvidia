@@ -15,4 +15,7 @@ limitations under the License.
 This project includes portions of code from the NVIDIA RAG repository (v1.0.0),
 available at: https://github.com/NVIDIA-AI-Blueprints/rag
 
+This project uses the `nemoguardrails` Python package (v0.11.0), licensed under Apache License 2.0.
+Source: https://github.com/NVIDIA/NeMo-Guardrails
+
 The original NVIDIA source is licensed under the Apache License 2.0 as well.
