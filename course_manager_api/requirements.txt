@@ -1,9 +1,9 @@
 fastapi>=0.115.2
 uvicorn>=0.23.2
 pydantic==2.9.2
-python-multipart
-requests
-aiohttp
-certifi
-prometheus-client
-prometheus-fastapi-instrumentator
+python-multipart==0.0.20
+requests==2.32.3
+aiohttp==3.11.16
+certifi==2025.1.31
+prometheus-client==0.21.1
+prometheus-fastapi-instrumentator==7.1.0
