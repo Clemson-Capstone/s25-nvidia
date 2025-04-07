@@ -489,16 +489,7 @@ class UnstructuredRAG(BaseExample):
             if not user_message:
                 logger.warning("No user message found in conversation")
                 return response
-                
-            # Generate response with guardrails - use proper message format
-            # formatted_messages = [{"role": "user", "content": user_message}]
 
-            # logger.info(f"Sending to guardrails: {formatted_messages}")  # Add this log
-  
-            
-            # guarded_response = RAILS.generate(messages=formatted_messages)
-
-            #tryingto retireve the relvant chunks in the method and then send it over to the guardrials
             if docs and len(docs) > 0:
                 try:
                     # Try to log the first chunk to see its structure
@@ -532,13 +523,6 @@ class UnstructuredRAG(BaseExample):
                 relevant_chunks = ""
                 logger.info("No chunks available to pass to guardrails")
                                         
-            # vs = get_vectorstore(VECTOR_STORE, document_embedder, "")
-            # top_k = 4  # Get top 5 chunks
-            # retriever = vs.as_retriever(search_kwargs={"k": top_k})
-            # docs = retriever.invoke(user_message)
-            # relevant_chunks = "\n\n".join([d.page_content for d in docs])
-            
-            # logger.info(f"Sending to guardrails with relevant chunks: {relevant_chunks[:100]}...")
             
             logger.info(f"This is the user message/query we are sending from chains.py: {user_message}")
 
@@ -552,24 +536,10 @@ class UnstructuredRAG(BaseExample):
 
 
             logger.info(f"This is what you are sending formatted_messages: {formatted_messages}")  # Add this log
-            # formatted_messages = [
-            #     {
-            #         "role": "context",
-            #         "content": {
-            #             "relevant_chunks": relevant_chunks,
-            #             "raw_llm_response": response
-            #         }
-            #     },
-            #     {
-            #         "role": "user",
-            #         "content": user_message
-            #     }
-            # ]
 
             guarded_response = RAILS.generate(messages=formatted_messages)
         
             logger.info(f"Raw guardrails response: {guarded_response}")
-            # logger.info(f"Raw guardrails response: {guarded_response}")  # Add this log
             
             # If we get an empty response, return the original
             if not guarded_response:
@@ -656,17 +626,6 @@ class UnstructuredRAG(BaseExample):
             collection_name (str): Name of the collection to be searched from vectorstore.
             kwargs: Additional keyword arguments for the LLM
         """
-        
-        logger.info("Hello this is kyle here")
-        logger.info(f"Query: {query}")
-        logger.info(f"Chat history length: {len(chat_history)}")
-        logger.info(f"Chat history: {chat_history}")
-        logger.info(f"Top n: {top_n}")
-
-        logger.info(f"Collection name: {collection_name}")
-
-
-
 
         logger.info("=== ENTERING RAG_CHAIN METHOD IN CHAINS.PY ===")
         # yield "TEST YIELD"
@@ -790,11 +749,8 @@ class UnstructuredRAG(BaseExample):
         try:
             #Right here is where its going bad / the guardrails is receiving a blank message
             logger.info("Applying guardrails")
-            #
+            
             guarded_response = self._apply_guardrails(raw_response, message, docs=docs)
-            logger.info(f"This is the raw response you are sending right before {raw_response }")
-            logger.info(f"This is the message you are sending right before {message }")
-            logger.info(f"Guarded response after processing: {guarded_response}")
             
             if not guarded_response or not guarded_response.strip():
                 logger.warning("Guardrails returned empty response")

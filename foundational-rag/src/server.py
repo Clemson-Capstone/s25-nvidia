@@ -535,7 +535,6 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
                 try:
                     # Try to get the first item from the generator
                     first_chunk = next(generator, None)
-                    logger.info(f"First chunk from generator: {first_chunk}")
                     
                     if first_chunk is not None:
                         # Process the first chunk
@@ -551,12 +550,10 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
                         chain_response.model = prompt.model
                         chain_response.object = "chat.completion.chunk"
                         chain_response.created = int(time.time())
-                        logger.info(f"Sending first chunk with ID: {resp_id}")
                         yield "data: " + str(chain_response.json()) + "\n\n"
                         
                         # Then process the rest of the chunks
                         for chunk in generator:
-                            logger.info(f"Processing next chunk: '{chunk}'")
                             chain_response = ChainResponse()
                             response_choice = ChainResponseChoices(
                                 index=0,
