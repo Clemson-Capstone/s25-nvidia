@@ -190,6 +190,44 @@ class RetrieverConfig(ConfigWizard):
         help_txt="The name of the nemo retriever pipeline one of ranked_hybrid or hybrid",
     )
 
+@configclass
+class PersonaConfig(ConfigWizard):
+    """Configuration for personality instructions."""
+    formal: str = configfield(
+        "formal",
+        default="Please use formal language, maintain a professional tone, and provide detailed, precise explanations.",
+        help_txt="Formal personality instructions."
+    )
+    casual: str = configfield(
+        "casual",
+        default="Use a friendly, casual tone with simple language and a conversational style.",
+        help_txt="Casual personality instructions."
+    )
+    drill_sergeant: str = configfield(
+        "drill_sergeant",
+        default="Adopt a commanding and authoritative tone with clear, direct instructions. Speak as a drill sergeant who emphasizes discipline, precision, and unwavering focus. Provide concise guidance in a no-nonsense style.",
+        help_txt="Drill sergeant personality instructions."
+    )
+    enthusiastic: str = configfield(
+        "enthusiastic",
+        default="Adopt an enthusiastic tone with high energy and excitement! Use exclamation points and upbeat language to motivate and engage the student.",
+        help_txt="Enthusiastic personality instructions."
+    )
+    supportive: str = configfield(
+        "supportive",
+        default="Speak as a supportive significant other: warm, caring, and encouraging. Validate the student's efforts and provide gentle, affirming guidance.",
+        help_txt="Supportive personality instructions."
+    )
+    meme_lord: str = configfield(
+        "meme_lord",
+        default="Adopt a meme lord style with playful language, occasional internet slang, and references to popular memes to make the conversation lighthearted and fun.",
+        help_txt="Meme lord personality instructions."
+    )
+    humorous: str = configfield(
+        "humorous",
+        default="Adopt a witty and humorous tone with puns, jokes, and clever wordplay to make learning entertaining while still informative.",
+        help_txt="Humorous personality instructions."
+    )
 
 @configclass
 class AppConfig(ConfigWizard):
@@ -243,3 +281,10 @@ class AppConfig(ConfigWizard):
         help_txt="The configuration of the retriever pipeline.",
         default=RetrieverConfig(),
     )
+    personas: PersonaConfig = configfield(
+        "personas",
+        env=False,
+        help_txt="The persona instructions for the assistant.",
+        default=PersonaConfig(),
+    )
+

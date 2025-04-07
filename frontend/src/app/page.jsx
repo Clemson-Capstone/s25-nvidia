@@ -24,6 +24,60 @@ import ChatSettings from '@/components/ChatSettings';
 import ChatInterface from '@/components/ChatInterface';
 import KnowledgeBase from '@/components/KnowledgeBase';
 
+// function for text-to-speech
+function speakText(text) {
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    const voices = window.speechSynthesis.getVoices();
+    // Try to find a female voice. Note that not all browsers provide gender info.
+    // You might need to filter by voice name or language. For example:
+    const femaleVoice = voices.find(voice =>
+      voice.name.toLowerCase().includes('samantha') ||
+      voice.name.toLowerCase().includes('zira') ||
+      (voice.lang === 'en-US' && voice.name.toLowerCase().includes('female'))
+    );
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    } else {
+      console.warn('No female voice found; using default voice.');
+    }
+
+    // Adjust additional parameters as needed ( 1 being default ):
+    utterance.pitch = 1;
+    utterance.rate = 1.4;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  } else {
+    console.error('Speech synthesis not supported in this browser.');
+  }
+}
+
+// function for speech-to-text
+function startSpeechRecognition(setInputMessage) {
+  // Set the input to "Listening..." immediately
+  setInputMessage("Listening...");
+  
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.error("Speech recognition is not supported in this browser.");
+    return;
+  }
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (event) => {
+    const speechResult = event.results[0][0].transcript;
+    setInputMessage(speechResult);
+  };
+  recognition.onerror = (event) => {
+    console.error("Speech recognition error:", event.error);
+  };
+  recognition.start();
+}
+
 export default function ChatPage() {
   // State variables
   const [messages, setMessages] = useState([]);
@@ -44,6 +98,9 @@ export default function ChatPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [tokenVerified, setTokenVerified] = useState(false);
   const [downloadedCourses, setDownloadedCourses] = useState([]);
+  const [persona, setPersona] = useState("formal");
+  const [ttsEnabled, setTTSEnabled] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Course content state variables
   const [courseContent, setCourseContent] = useState(null);
@@ -87,6 +144,11 @@ export default function ChatPage() {
       checkDownloadedCourses();
     }
   }, [userId, tokenVerified]);
+
+  // Apply the dark class to <html> when isDarkMode changes
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, [isDarkMode]);
 
   // Reset selected items when course content changes
   useEffect(() => {
@@ -682,6 +744,7 @@ export default function ChatPage() {
       const requestBody = {
         messages: [...messages, newMessage],
         use_knowledge_base: useKnowledgeBase,
+      	persona,
         temperature: 0.7,
         top_p: 0.8,
         max_tokens: 1024,
@@ -723,6 +786,9 @@ export default function ChatPage() {
                     role: 'assistant',
                     content: accumulatedMessage
                   }]);
+                  if (ttsEnabled) {
+                    speakText(accumulatedMessage);
+                  }
                   setStreamingMessage('');
                 }
                 break;
@@ -791,10 +857,10 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-100 via-white to-orange-50 p-4">
+    <div className="min-h-screen bg-background text-foreground p-4">
       {/* Title */}
       <div className="max-w-4xl mx-auto mb-6 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 to-orange-400 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent"> 
           Virtual Teaching Assistant
         </h1>
       </div>
@@ -821,10 +887,16 @@ export default function ChatPage() {
       <ChatSettings 
         useKnowledgeBase={useKnowledgeBase}
         setUseKnowledgeBase={setUseKnowledgeBase}
+        ttsEnabled={ttsEnabled}
+        setTTSEnabled={setTTSEnabled}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
         selectedEdgeCase={selectedEdgeCase}
         handleEdgeCaseSelect={handleEdgeCaseSelect}
         handleSubmit={handleSubmit}
         isLoading={isLoading}
+        persona={persona}
+        setPersona={setPersona}
       />
 
       {/* Status Messages */}
@@ -892,7 +964,7 @@ export default function ChatPage() {
           
           {/* Course Content Tab */}
           <TabsContent value="content">
-            <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+            <Card className="bg-card/80 backdrop-blur-sm border border-border">
               <CardContent className="p-6">
                 <div className="mb-6">
                   <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -934,7 +1006,7 @@ export default function ChatPage() {
                           fetchCourseContent(selectedCourse, 'file_list');
                         }}
                         disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                        className={selectedTab === 'files' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                        className={selectedTab === 'files' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
                       >
                         Files
                       </Button>
@@ -945,7 +1017,7 @@ export default function ChatPage() {
                           fetchCourseContent(selectedCourse, 'course_info');
                         }}
                         disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                        className={selectedTab === 'structure' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                        className={selectedTab === 'structure' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
                       >
                         Course Structure
                       </Button>
@@ -953,9 +1025,9 @@ export default function ChatPage() {
                   </div>
                   
                   {downloadedCourses.length === 0 && (
-                    <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-lg text-gray-600">No courses have been downloaded yet.</p>
-                      <p className="text-sm text-gray-500 mt-2">Download a course to view its content here.</p>
+                    <div className="text-center p-8 bg-card rounded-lg border border-border text-card-foreground">
+                      <p className="text-lg">No courses have been downloaded yet.</p>
+                      <p className="text-sm text-muted-foreground mt-2">Download a course to view its content here.</p>
                     </div>
                   )}
                   
@@ -964,7 +1036,7 @@ export default function ChatPage() {
                       <ScrollArea className="h-[500px] pr-4 mb-4">
                         {isLoadingContent ? (
                           <div className="flex justify-center items-center h-64">
-                            <p className="text-gray-500">Loading content...</p>
+                            <p className="text-muted-foreground">Loading content...</p>
                           </div>
                         ) : (
                           selectedTab === 'files' ? renderCanvasFiles() : renderCanvasStructure()
@@ -978,7 +1050,7 @@ export default function ChatPage() {
                         <Button
                           disabled={getTotalSelectedItems() === 0 || isProcessing}
                           onClick={uploadSelectedToRAG}
-                          className="bg-orange-500 hover:bg-orange-600 text-white"
+                          className='bg-primary hover:brightness-110 text-primary-foreground'
                         >
                           {isProcessing ? 'Uploading...' : 'Upload Selected to Knowledge Base'}
                         </Button>

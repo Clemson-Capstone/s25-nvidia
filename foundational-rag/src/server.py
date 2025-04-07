@@ -172,6 +172,12 @@ class Prompt(BaseModel):
         max_length=4096,
         pattern=r'[\s\S]*',
     )
+    
+    #sets default persona
+    persona: str = Field(
+        default="formal",
+        description="The personality of the assistant. Options: formal, casual, drill_sergeant, enthusiastic, supportive, meme_lord, humorous."
+    )
 
     # seed: int = Field(42, description="If specified, our system will make a best effort to sample deterministically,
     #       such that repeated requests with the same seed and parameters should return the same result.")
@@ -489,6 +495,8 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
             key: value
             for key, value in vars(prompt).items() if key not in ['messages', 'use_knowledge_base', 'collection_name']
         }
+
+        llm_settings["persona"] = prompt.persona
 
         # pylint: disable=unreachable
         example = app.example()

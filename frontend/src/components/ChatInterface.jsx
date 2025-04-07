@@ -40,7 +40,7 @@ const ChatInterface = ({
   };
 
   return (
-    <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+    <Card className="bg-card/80 backdrop-blur-sm border border-border">
       <CardContent className="p-6">
         <ScrollArea className="h-[600px] mb-4 pr-4">
           {messages.map((message, index) => (
@@ -53,8 +53,8 @@ const ChatInterface = ({
               <div
                 className={`inline-block max-w-[80%] p-4 rounded-lg shadow-sm ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                    : 'bg-white text-gray-800 border border-orange-100'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card text-card-foreground border border-border'
                 }`}
               >
                 <ReactMarkdown
@@ -82,7 +82,7 @@ const ChatInterface = ({
           ))}
           {streamingMessage && (
             <div className="mb-4 text-left">
-              <div className="inline-block max-w-[80%] p-4 rounded-lg bg-white text-gray-800 border border-orange-100 shadow-sm">
+              <div className="inline-block max-w-[80%] p-4 rounded-lg bg-card text-card-foreground border border-border shadow-sm">
                 <ReactMarkdown
                   components={{
                     p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
@@ -122,17 +122,22 @@ const ChatInterface = ({
               }
             }}
             placeholder="Type your message... (Shift+Enter for new line)"
-            className="flex-grow bg-white/50 min-h-[50px] max-h-[200px] overflow-y-auto resize-none"
+            className="flex-grow bg-card/50 text-card-foreground"
             disabled={isLoading}
           />
           <Button 
             type="submit" 
-            className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-sm"
+            className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
             disabled={isLoading || !inputMessage.trim()}
           >
             {isLoading ? 'Sending...' : 'Send'}
           </Button>
         </form>
+        <div className="mt-2">
+          <Button onClick={() => startSpeechRecognition(setInputMessage)} className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm" >
+            Start Speaking
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
