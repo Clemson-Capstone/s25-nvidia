@@ -3,6 +3,19 @@
   SPDX-License-Identifier: Apache-2.0
 -->
 
+## License and Attribution
+
+This project is licensed under the [Apache License 2.0](./LICENSE).
+
+### Upstream NVIDIA Dependencies
+
+This project builds upon and integrates components from the [NVIDIA RAG Blueprint v1.0.0](https://github.com/NVIDIA-AI-Blueprints/rag), which is licensed under the Apache License 2.0. Portions of the original RAG blueprint are located under the `foundational-rag/` directory.
+
+Additionally, this project uses the [`nemoguardrails`](https://github.com/NVIDIA/NeMo-Guardrails) Python package (v0.11.0), also licensed under Apache License 2.0, to provide guardrail functionality for chatbot safety and control.
+
+All original and modified content is redistributed in compliance with the terms of the Apache License 2.0.
+
+
 # Get Started With VTA Blueprint:
 
 Use the following documentation to get started with the NVIDIA RAG Blueprint.

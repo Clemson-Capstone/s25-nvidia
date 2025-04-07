@@ -13,12 +13,6 @@ RUN apt update && \
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 RUN rm -rf /var/lib/apt/lists/*
 
-# Clean installation of PDF and document processing packages
-RUN pip uninstall -y pdfminer pdfminer.six unstructured langchain-unstructured
-RUN pip install pdfminer.six==20250327 unstructured==0.17.2 langchain-unstructured
-
-# Will perform the text replacement in the file
-RUN sed -i 's/from pdfminer.pdfparser import PSSyntaxError/from pdfminer.pdfparser import PDFSyntaxError as PSSyntaxError/' /usr/local/lib/python3.10/dist-packages/unstructured/partition/pdf_image/pdfminer_utils.py
 # Install build dependencies before pip install
 RUN apt update && apt install -y \
     build-essential \
@@ -45,6 +39,13 @@ COPY LICENSE-3rd-party.txt /legal/
 RUN --mount=type=cache,id=pip_cache,target=/root/.cache/pip,sharing=locked \
  --mount=type=bind,source=./requirements.txt,target=/opt/requirements.txt \
  pip3 install --no-cache-dir -r /opt/requirements.txt
+
+# Clean installation of PDF and document processing packages
+RUN pip uninstall -y pdfminer pdfminer.six unstructured langchain-unstructured
+RUN pip install pdfminer.six==20250327 unstructured==0.17.2 langchain-unstructured
+
+# Will perform the text replacement in the file
+RUN sed -i 's/from pdfminer.pdfparser import PSSyntaxError/from pdfminer.pdfparser import PDFSyntaxError as PSSyntaxError/' /usr/local/lib/python3.10/dist-packages/unstructured/partition/pdf_image/pdfminer_utils.py
 
 # Set environment variables needed for Text splitter
 RUN mkdir /tmp-data/;
