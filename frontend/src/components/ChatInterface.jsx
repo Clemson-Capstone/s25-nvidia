@@ -34,9 +34,9 @@ const ChatInterface = ({
     ul: "list-disc ml-4 my-2",
     ol: "list-decimal ml-4 my-2",
     li: "ml-2",
-    blockquote: "border-l-4 border-orange-300 pl-4 italic my-2",
-    code: "bg-gray-100 rounded px-1 py-0.5 font-mono text-sm",
-    pre: "bg-gray-100 rounded p-2 my-2 font-mono text-sm overflow-x-auto",
+    blockquote: "border-l-4 border-border pl-4 italic my-2",
+  code: "bg-muted text-muted-foreground rounded px-1 py-0.5 font-mono text-sm",
+  pre: "bg-muted text-muted-foreground rounded p-2 my-2 font-mono text-sm overflow-x-auto",
   };
 
   return (
