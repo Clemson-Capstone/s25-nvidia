@@ -29,7 +29,7 @@ const CourseContent = ({
   // Render the content based on its type
   const renderContent = () => {
     if (!courseContent) {
-      return <div className="text-center p-4 text-gray-500">No content to display</div>;
+      return <div className="text-center p-4 text-muted-foreground">No content to display</div>;
     }
     
     if (contentType === 'file_list') {
@@ -38,13 +38,13 @@ const CourseContent = ({
           <h3 className="text-lg font-medium">Files in {courses[selectedCourse] || 'Selected Course'}</h3>
           <div className="grid gap-2">
             {courseContent.length === 0 ? (
-              <div className="p-4 border rounded-md bg-gray-50 text-center">No files available</div>
+              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No files available</div>
             ) : (
               courseContent.map((file, index) => (
-                <div key={index} className="p-3 border rounded-md bg-white hover:bg-gray-50 flex justify-between items-center">
+                <div key={index} className="p-3 border rounded-md bg-card hover:bg-muted text-card-foreground flex justify-between items-center">
                   <div>
                     <p className="font-medium">{file.name}</p>
-                    <p className="text-sm text-gray-500">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
+                    <p className="text-sm text-muted-foreground">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
                   </div>
                 </div>
               ))
@@ -60,17 +60,17 @@ const CourseContent = ({
           <div>
             <h3 className="text-lg font-medium mb-2">Modules</h3>
             {courseContent.modules.length === 0 ? (
-              <div className="p-4 border rounded-md bg-gray-50 text-center">No modules available</div>
+              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No modules available</div>
             ) : (
               <div className="space-y-2">
                 {courseContent.modules.map((module, index) => (
-                  <div key={index} className="p-3 border rounded-md bg-white">
+                  <div key={index} className="p-3 border rounded-md bg-card text-card-foreground">
                     <p className="font-medium">{module.name}</p>
                     {module.items && module.items.length > 0 && (
                       <div className="ml-4 mt-2 space-y-1">
                         {module.items.map((item, itemIndex) => (
-                          <div key={itemIndex} className="text-sm p-2 border-l-2 border-orange-200">
-                            {item.title} <span className="text-gray-500">({item.type})</span>
+                          <div key={itemIndex} className="text-sm p-2 border-l-2 border-border text-foreground">
+                            {item.title} <span className="text-muted-foreground">({item.type})</span>
                           </div>
                         ))}
                       </div>
@@ -84,13 +84,13 @@ const CourseContent = ({
           <div>
             <h3 className="text-lg font-medium mb-2">Pages</h3>
             {courseContent.pages.length === 0 ? (
-              <div className="p-4 border rounded-md bg-gray-50 text-center">No pages available</div>
+              <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No pages available</div>
             ) : (
               <div className="grid gap-2">
                 {courseContent.pages.map((page, index) => (
-                  <div key={index} className="p-3 border rounded-md bg-white">
+                  <div key={index} className="p-3 border rounded-md bg-card text-card-foreground">
                     <p className="font-medium">{page.title}</p>
-                    <p className="text-sm text-gray-500">Last updated: {new Date(page.updated_at).toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Last updated: {new Date(page.updated_at).toLocaleString()}</p>
                   </div>
                 ))}
               </div>
@@ -101,14 +101,14 @@ const CourseContent = ({
     }
     
     return (
-      <pre className="p-4 bg-gray-50 rounded-md overflow-auto">
+      <pre className="p-4 bg-card text-card-foreground rounded-md overflow-auto">
         {JSON.stringify(courseContent, null, 2)}
       </pre>
     );
   };
 
   return (
-    <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+    <Card className="bg-card/80 backdrop-blur-sm border border-border">
       <CardContent className="p-6">
         <div className="mb-6">
           <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -147,7 +147,7 @@ const CourseContent = ({
                 variant={contentType === 'file_list' ? 'default' : 'outline'}
                 onClick={() => fetchCourseContent(selectedCourse, 'file_list')}
                 disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                className={contentType === 'file_list' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                className={contentType === 'file_list' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
               >
                 Files
               </Button>
@@ -155,7 +155,7 @@ const CourseContent = ({
                 variant={contentType === 'course_info' ? 'default' : 'outline'}
                 onClick={() => fetchCourseContent(selectedCourse, 'course_info')}
                 disabled={isLoadingContent || !selectedCourse || !downloadedCourses.includes(selectedCourse)}
-                className={contentType === 'course_info' ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+                className={contentType === 'course_info' ? 'bg-primary hover:brightness-110 text-primary-foreground' : ''}
               >
                 Course Structure
               </Button>
@@ -163,9 +163,9 @@ const CourseContent = ({
           </div>
           
           {downloadedCourses.length === 0 && (
-            <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-lg text-gray-600">No courses have been downloaded yet.</p>
-              <p className="text-sm text-gray-500 mt-2">Download a course to view its content here.</p>
+            <div className="text-center p-8 bg-card text-card-foreground rounded-lg border border-border">
+              <p className="text-lg text-muted-foreground">No courses have been downloaded yet.</p>
+              <p className="text-sm text-muted-foreground mt-2">Download a course to view its content here.</p>
             </div>
           )}
           
@@ -174,7 +174,7 @@ const CourseContent = ({
               <ScrollArea className="h-[500px] pr-4">
                 {isLoadingContent ? (
                   <div className="flex justify-center items-center h-64">
-                    <p className="text-gray-500">Loading content...</p>
+                    <p className="text-muted-foreground">Loading content...</p>
                   </div>
                 ) : (
                   renderContent()
