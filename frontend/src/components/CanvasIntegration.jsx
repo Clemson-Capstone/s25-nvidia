@@ -28,7 +28,7 @@ const CanvasIntegration = ({
 }) => {
   return (
     <div className="max-w-4xl mx-auto mb-6">
-      <Card className="bg-white/80 backdrop-blur-sm border border-orange-100">
+      <Card className="bg-card/80 backdrop-blur-sm border border-border">
         <CardContent className="p-6">
           <h2 className="text-xl font-semibold mb-4">Canvas Integration</h2>
           
@@ -55,7 +55,7 @@ const CanvasIntegration = ({
               <Button 
                 onClick={verifyToken} 
                 disabled={isVerifyingToken || !canvasToken.trim()}
-                className="whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white"
+                className="whitespace-nowrap bg-primary hover:brightness-110 text-primary-foreground"
               >
                 {isVerifyingToken ? 'Verifying...' : 'Confirm Token'}
               </Button>
@@ -64,7 +64,7 @@ const CanvasIntegration = ({
           
           {/* User ID Display */}
           {userId && (
-            <div className="text-sm text-gray-600 mb-4">
+            <div className="text-sm text-muted-foreground mb-4">
               Connected as User ID: {userId}
             </div>
           )}
@@ -100,7 +100,7 @@ const CanvasIntegration = ({
               <Button
                 onClick={downloadCourse}
                 disabled={isDownloading || !selectedCourse || isFetchingCourses}
-                className="whitespace-nowrap bg-orange-500 hover:bg-orange-600 text-white"
+                className="whitespace-nowrap bg-primary hover:brightness-110 text-primary-foreground"
               >
                 {isDownloading ? 'Downloading...' : downloadedCourses.includes(selectedCourse) ? 'Re-Download' : 'Download Course'}
               </Button>
