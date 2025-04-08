@@ -31,7 +31,6 @@ function speakText(text) {
     
     const voices = window.speechSynthesis.getVoices();
     // Try to find a female voice. Note that not all browsers provide gender info.
-    // You might need to filter by voice name or language. For example:
     const femaleVoice = voices.find(voice =>
       voice.name.toLowerCase().includes('samantha') ||
       voice.name.toLowerCase().includes('zira') ||
@@ -572,7 +571,7 @@ export default function ChatPage() {
     if (processingFiles.length === 0) return null;
     
     return (
-      <div className="mt-4 mb-4 space-y-4 p-4 border rounded-md bg-gray-50">
+      <div className="mt-4 mb-4 space-y-4 p-4 border rounded-md bg-card text-card-foreground">
         <h3 className="text-md font-medium">Processing Files</h3>
         {processingFiles.map((file, index) => (
           <div key={index} className="space-y-1">
@@ -584,7 +583,7 @@ export default function ChatPage() {
                     file.status === 'complete' ? 'bg-green-100 text-green-800' :
                     file.status === 'error' ? 'bg-red-100 text-red-800' :
                     file.status === 'uploading' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
+                    'bg-card text-card-foreground'
                   }
                 >
                   {file.status === 'complete' ? 'Complete' :
@@ -606,8 +605,8 @@ export default function ChatPage() {
   const renderCanvasFiles = () => {
     if (!courseContent || !Array.isArray(courseContent)) {
       return (
-        <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-lg text-gray-600">No files available</p>
+        <div className="text-center p-8 bg-card text-card-foreground rounded-lg border border-border">
+          <p className="text-lg text-muted-foreground">No files available</p>
         </div>
       );
     }
@@ -617,7 +616,7 @@ export default function ChatPage() {
         {courseContent.map((file, index) => (
           <div 
             key={index} 
-            className="p-3 border rounded-md bg-white hover:bg-gray-50 flex items-center"
+            className="p-3 border rounded-md bg-card hover:bg-muted text-card-foreground flex items-center"
           >
             <div className="flex-shrink-0 mr-3">
               <Checkbox 
@@ -630,7 +629,7 @@ export default function ChatPage() {
               <Label htmlFor={`file-${index}`} className="font-medium cursor-pointer">
                 {file.name}
               </Label>
-              <p className="text-sm text-gray-500">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
+              <p className="text-sm text-muted-foreground">{file.type || 'Unknown type'} - {formatFileSize(file.size)}</p>
             </div>
           </div>
         ))}
@@ -642,8 +641,8 @@ export default function ChatPage() {
   const renderCanvasStructure = () => {
     if (!courseContent || !courseContent.modules || !courseContent.pages) {
       return (
-        <div className="text-center p-8 bg-gray-50 rounded-lg border border-gray-200">
-          <p className="text-lg text-gray-600">No course structure available</p>
+        <div className="text-center p-8 bg-card text-card-foreground rounded-lg border border-border">
+          <p className="text-lg text-muted-foreground">No course structure available</p>
         </div>
       );
     }
@@ -654,16 +653,16 @@ export default function ChatPage() {
         <div>
           <h3 className="text-lg font-medium mb-2">Modules</h3>
           {courseContent.modules.length === 0 ? (
-            <div className="p-4 border rounded-md bg-gray-50 text-center">No modules available</div>
+            <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No modules available</div>
           ) : (
             <div className="space-y-2">
               {courseContent.modules.map((module, moduleIndex) => (
-                <div key={moduleIndex} className="p-3 border rounded-md bg-white">
+                <div key={moduleIndex} className="p-3 border rounded-md bg-card text-card-foreground">
                   <p className="font-medium">{module.name}</p>
                   {module.items && module.items.length > 0 && (
                     <div className="ml-4 mt-2 space-y-1">
                       {module.items.map((item, itemIndex) => (
-                        <div key={itemIndex} className="flex items-center p-2 border-l-2 border-orange-200">
+                        <div key={itemIndex} className="flex items-center p-2 border-l-2 border-border text-foreground">
                           <div className="flex-shrink-0 mr-3">
                             <Checkbox 
                               id={`module-${moduleIndex}-item-${itemIndex}`} 
@@ -675,7 +674,7 @@ export default function ChatPage() {
                             htmlFor={`module-${moduleIndex}-item-${itemIndex}`} 
                             className="cursor-pointer"
                           >
-                            {item.title} <span className="text-gray-500">({item.type})</span>
+                            {item.title} <span className="text-muted-foreground">({item.type})</span>
                           </Label>
                         </div>
                       ))}
@@ -691,11 +690,11 @@ export default function ChatPage() {
         <div>
           <h3 className="text-lg font-medium mb-2">Pages</h3>
           {courseContent.pages.length === 0 ? (
-            <div className="p-4 border rounded-md bg-gray-50 text-center">No pages available</div>
+            <div className="p-4 border rounded-md bg-card text-card-foreground text-center">No pages available</div>
           ) : (
             <div className="space-y-2">
               {courseContent.pages.map((page, pageIndex) => (
-                <div key={pageIndex} className="p-3 border rounded-md bg-white flex items-center">
+                <div key={pageIndex} className="p-3 border rounded-md bg-card text-card-foreground flex items-center">
                   <div className="flex-shrink-0 mr-3">
                     <Checkbox 
                       id={`page-${pageIndex}`} 
@@ -707,7 +706,7 @@ export default function ChatPage() {
                     <Label htmlFor={`page-${pageIndex}`} className="font-medium cursor-pointer">
                       {page.title}
                     </Label>
-                    <p className="text-sm text-gray-500">Last updated: {new Date(page.updated_at).toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">Last updated: {new Date(page.updated_at).toLocaleString()}</p>
                   </div>
                 </div>
               ))}
