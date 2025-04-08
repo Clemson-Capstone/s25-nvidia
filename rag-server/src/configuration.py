@@ -48,7 +48,7 @@ class VectorStoreConfig(ConfigWizard):
     )
     index_type: str = configfield(
         "index_type",
-        default="GPU_CAGRA",
+        default="IVF_FLAT", # Usually GPU_CARGA but we only have CPU
         help_txt="Index of the vector db",  # IVF Flat for milvus
     )
 

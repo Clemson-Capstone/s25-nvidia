@@ -1,13 +1,13 @@
 models:
   - type: "content_safety"
     engine: nim
-    model: nvidia/nemoguard-8b-content-safety
+    model: meta/llama3-8b-instruct
     parameters:
       base_url: https://integrate.api.nvidia.com/v1
 
   - type: "topic_control"
     engine: nim
-    model: nvidia/nemoguard-8b-topic-control
+    model: meta/llama3-8b-instruct
     parameters:
       base_url: https://integrate.api.nvidia.com/v1
 
