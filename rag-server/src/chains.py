@@ -21,7 +21,7 @@ from typing import Any, Iterable
 from typing import Dict
 from typing import Generator
 from typing import List
-from pathlib import Path
+
 from langchain_nvidia_ai_endpoints.callbacks import get_usage_callback
 from langchain_community.document_loaders import UnstructuredFileLoader
 from langchain_core.output_parsers.string import StrOutputParser
@@ -45,67 +45,6 @@ from .utils import streaming_filter_think, get_streaming_filter_think_parser
 from .reflection import ReflectionCounter, check_context_relevance, check_response_groundedness
 from .utils import normalize_relevance_scores
 
-from nemoguardrails import LLMRails, RailsConfig
-from nemoguardrails.actions import action
-from nemoguardrails.actions.actions import ActionResult
-from nemoguardrails.integrations.langchain.runnable_rails import RunnableRails
-from langchain.prompts import PromptTemplate
-from langchain_core.language_models.llms import BaseLLM
-
-
-#Defining the python actions 
-
-# Define the quiz response prompt template
-quiz_response_template = """
-        Based on the following quiz question, DO NOT provide or hint at the correct answer.
-        Instead, explain the underlying concepts to help understanding.
-        
-        Question: {question}
-        
-        Format your response exactly as follows (preserve all newlines and spacing):
-        
-        Key Concept 1
-        
-        Key Concept 2
-        
-        Practical Application
-        
-        Brief explanation connecting the concepts.
-        """
-
-@action(is_system_action=True)
-async def quiz_response(context: dict, llm: BaseLLM):
-    logger.info("QUIZ RESPONSE ACTION TRIGGERED!")
-    try:
-        # Get the quiz question from the context
-        inputs = context.get("last_user_message")
-        logger.info(f"Processing quiz question: {inputs}")
-        
-        # Build the prompt chain
-        output_parser = StrOutputParser()
-        prompt_template = PromptTemplate.from_template(quiz_response_template)
-        input_variables = {"question": inputs}
-        chain = prompt_template | llm | output_parser
-        
-        # Invoke the chain to generate a response
-        raw_documents = UnstructuredLoader(_path).load()
-        formatted_answer = raw_answer.replace("\n\n", "<br><br>").replace("\n", "<br>")
-        logger.info(f"Generated quiz response: {formatted_answer}")
-        
-        # Return an ActionResult with the answer and any context updates (if needed)
-        return ActionResult(
-            return_value="I understand you're asking about: " + formatted_answer,
-            context_updates={}
-        )
-    except Exception as e:
-        logger.error(f"Error in quiz_response: {e}")
-        return ActionResult(
-            return_value="I can help explain the concepts, but I cannot provide direct answers to quiz questions.",
-            context_updates={}
-        )
-
-
-
 logger = logging.getLogger(__name__)
 VECTOR_STORE_PATH = "vectorstore.pkl"
 TEXT_SPLITTER = None
@@ -126,32 +65,6 @@ except Exception as ex:
 
 # Get a StreamingFilterThinkParser based on configuration
 StreamingFilterThinkParser = get_streaming_filter_think_parser()
-
-# Initialize NeMo Guardrails
-try:
-    guardrails_path = os.environ.get(
-    "GUARDRAILS_CONFIG_PATH", 
-    "/config-store/nemoguard_cloud/guardrails/rails"  # Fallback path
-)
-    rails_config = RailsConfig.from_path(guardrails_path)
-
-    # Initialize rails without llm_params as it's not supported
-    RAILS = LLMRails(rails_config)
-    logger.info("Successfully initialized NeMo Guardrails")
-
-    #I am registering the python actions here
-    
-    RAILS.register_action(quiz_response, "quiz_response")
-
-    logger.info("Successfully initialized NeMo Guardrails and registered quiz_response")
-
-    
-    logger.info("DEBUG: This is the chains.py file in directory X")
-    logger.info(f"Successfully initialized NeMo Guardrails from path: {guardrails_path}")
-except Exception as ex:
-    RAILS = None
-    logger.warning(f"Failed to initialize NeMo Guardrails: {ex}")
-
 
 class APIError(Exception):
     """Custom exception class for API errors."""
