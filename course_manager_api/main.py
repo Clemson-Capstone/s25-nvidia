@@ -74,8 +74,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Define the RAG server URL with the updated base URL
-RAG_SERVER_URL = "http://host.docker.internal:8081"
+# Define server URLs for RAG and ingestion services
+RAG_SERVER_URL = "http://host.docker.internal:8081"  # For retrieval operations
+INGESTION_SERVER_URL = "http://host.docker.internal:8082"  # For ingestion operations
 
 # Define request models
 class TokenRequest(BaseModel):
@@ -234,26 +235,46 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
         # Check if collection exists, if not create it
         await ensure_collection_exists(collection_name)
         
-        # Create files dict for request - now including collection name parameter
-        with open(file_path, 'rb') as f:
-            files = {"file": (file_name, f, mime_type)}
-            
-            # Use the V1 API endpoints
-            url = f"{RAG_SERVER_URL}/v1/documents?collection_name={collection_name}"
-            print(f"[UPLOAD_TO_RAG] Sending request to: {url}")
-            
-            # Set a longer timeout for larger files
-            response = requests.post(url, files=files, timeout=600)
-            
-            print(f"[UPLOAD_TO_RAG] Response status: {response.status_code}")
-            if response.status_code == 200:
-                print(f"[UPLOAD_TO_RAG] Upload successful: {response.text}")
-                UPLOADS_TO_RAG.labels(status="success").inc()
-                return {"status": "success", "collection_name": collection_name}
-            else:
-                print(f"[UPLOAD_TO_RAG] Upload failed: {response.text}")
-                UPLOADS_TO_RAG.labels(status="error_rag_server").inc()
-                raise Exception(f"Failed to upload to RAG: {response.text}")
+        # Create form data for request, including extraction and split options
+        form_data = aiohttp.FormData()
+        form_data.add_field("documents", open(file_path, 'rb'), filename=file_name, content_type=mime_type)
+        
+        # Add options as JSON data
+        data = {
+            "collection_name": collection_name,
+            "extraction_options": {
+                "extract_text": True,
+                "extract_tables": True,
+                "extract_charts": True,
+                "extract_images": False,
+                "extract_method": "pdfium",
+                "text_depth": "page",
+            },
+            "split_options": {
+                "chunk_size": 1024,
+                "chunk_overlap": 150
+            }
+        }
+        form_data.add_field("data", json.dumps(data), content_type="application/json")
+        
+        # Use the INGESTION API endpoint for document upload
+        url = f"{INGESTION_SERVER_URL}/v1/documents"
+        print(f"[UPLOAD_TO_RAG] Sending request to: {url}")
+        
+        # Set a longer timeout for larger files
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=form_data, timeout=600) as response:
+                print(f"[UPLOAD_TO_RAG] Response status: {response.status}")
+                if response.status == 200:
+                    response_text = await response.text()
+                    print(f"[UPLOAD_TO_RAG] Upload successful: {response_text}")
+                    UPLOADS_TO_RAG.labels(status="success").inc()
+                    return {"status": "success", "collection_name": collection_name}
+                else:
+                    response_text = await response.text()
+                    print(f"[UPLOAD_TO_RAG] Upload failed: {response_text}")
+                    UPLOADS_TO_RAG.labels(status="error_rag_server").inc()
+                    raise Exception(f"Failed to upload to RAG: {response_text}")
                 
     except Exception as e:
         print(f"[UPLOAD_TO_RAG] EXCEPTION: Error uploading file {file_name} to RAG: {str(e)}")
@@ -265,32 +286,52 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
 async def ensure_collection_exists(collection_name):
     """Make sure a collection exists, create it if it doesn't"""
     try:
-        # First, check if collection exists
-        url = f"{RAG_SERVER_URL}/v1/collections"
-        response = requests.get(url)
+        # First, check if collection exists using the INGESTION API
+        url = f"{INGESTION_SERVER_URL}/v1/collections"
         
-        if response.status_code != 200:
-            print(f"[ENSURE_COLLECTION] Failed to get collections: {response.text}")
-            raise Exception(f"Failed to get collections: {response.text}")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                if response.status != 200:
+                    response_text = await response.text()
+                    print(f"[ENSURE_COLLECTION] Failed to get collections: {response_text}")
+                    raise Exception(f"Failed to get collections: {response_text}")
+                
+                collections_data = await response.json()
         
-        collections_data = response.json()
-        collections = collections_data.get("collections", [])
-        collection_names = [c.get("collection_name") for c in collections]
+        # Parse the collections response based on API format
+        if isinstance(collections_data, dict) and "collections" in collections_data:
+            collections = collections_data.get("collections", [])
+            collection_names = [c.get("collection_name") for c in collections]
+        else:
+            # Handle case where the API returns a list directly
+            collections = collections_data if isinstance(collections_data, list) else []
+            collection_names = [c for c in collections]
         
         # If collection doesn't exist, create it
         if collection_name not in collection_names:
             print(f"[ENSURE_COLLECTION] Creating collection: {collection_name}")
-            create_url = f"{RAG_SERVER_URL}/v1/collections"
-            create_response = requests.post(
-                create_url,
-                json={"collection_name": collection_name}
-            )
+            create_url = f"{INGESTION_SERVER_URL}/v1/collections"
             
-            if create_response.status_code != 200:
-                print(f"[ENSURE_COLLECTION] Failed to create collection: {create_response.text}")
-                raise Exception(f"Failed to create collection: {create_response.text}")
+            # Create collection with appropriate parameters
+            params = {
+                "collection_type": "text",
+                "embedding_dimension": 2048
+            }
             
-            print(f"[ENSURE_COLLECTION] Collection {collection_name} created successfully")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    create_url,
+                    params=params,
+                    json=[collection_name],
+                    headers={"Content-Type": "application/json"}
+                ) as create_response:
+                    
+                    if create_response.status != 200:
+                        response_text = await create_response.text()
+                        print(f"[ENSURE_COLLECTION] Failed to create collection: {response_text}")
+                        raise Exception(f"Failed to create collection: {response_text}")
+                    
+                    print(f"[ENSURE_COLLECTION] Collection {collection_name} created successfully")
         else:
             print(f"[ENSURE_COLLECTION] Collection {collection_name} already exists")
         

@@ -17,6 +17,10 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Server URLs
+const RAG_SERVER_URL = "http://localhost:8081";  // For retrieval operations
+const INGESTION_SERVER_URL = "http://localhost:8082";  // For ingestion operations
+
 const KnowledgeBase = ({
   documents,
   fetchDocuments,
@@ -165,12 +169,18 @@ const KnowledgeBase = ({
     setError('');
     
     try {
-      const response = await fetch('http://localhost:8081/v1/collections', {
+      // Use the ingestion server for collection management
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/collections`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ collection_name: newCollectionName }),
+        // Update to match ingestion API format
+        params: {
+          "collection_type": "text",
+          "embedding_dimension": 2048
+        },
+        body: JSON.stringify([newCollectionName]),
       });
       
       if (!response.ok) {
@@ -210,7 +220,25 @@ const KnowledgeBase = ({
     
     // Create FormData object to send the file
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('documents', file);
+    
+    // Add extraction and split options
+    const data = {
+      "collection_name": localSelectedCollection,
+      "extraction_options": {
+        "extract_text": true,
+        "extract_tables": true,
+        "extract_charts": true,
+        "extract_images": false,
+        "extract_method": "pdfium",
+        "text_depth": "page",
+      },
+      "split_options": {
+        "chunk_size": 1024,
+        "chunk_overlap": 150
+      }
+    };
+    formData.append('data', JSON.stringify(data));
     
     try {
       // Create a mock progress simulation
@@ -229,8 +257,8 @@ const KnowledgeBase = ({
         });
       }, 500);
       
-      // Use the v1 API with collection_name parameter
-      const response = await fetch(`http://localhost:8081/v1/documents?collection_name=${encodeURIComponent(localSelectedCollection)}`, {
+      // Use the INGESTION server for document upload
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/documents`, {
         method: 'POST',
         body: formData,
       });
@@ -372,13 +400,17 @@ const KnowledgeBase = ({
         );
         
         if (!existingCollection) {
-          // Create collection for this course
-          const createResponse = await fetch('http://localhost:8081/v1/collections', {
+          // Create collection for this course using the ingestion server
+          const createResponse = await fetch(`${INGESTION_SERVER_URL}/v1/collections`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ collection_name: courseCollection }),
+            params: {
+              "collection_type": "text",
+              "embedding_dimension": 2048
+            },
+            body: JSON.stringify([courseCollection]),
           });
           
           if (!createResponse.ok) {
@@ -500,8 +532,8 @@ const KnowledgeBase = ({
     setSuccessMessage('');
     
     try {
-      // Use the v1 API with collection_name parameter
-      const response = await fetch(`http://localhost:8081/v1/documents?collection_name=${encodeURIComponent(localSelectedCollection)}`, {
+      // Use the ingestion server's v1 API with collection_name parameter
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/documents?collection_name=${encodeURIComponent(localSelectedCollection)}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -538,12 +570,13 @@ const KnowledgeBase = ({
     setSuccessMessage('');
     
     try {
-      const response = await fetch(`http://localhost:8081/v1/collections`, {
+      // Use the ingestion server for collection deletion
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/collections`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ collection_names: [collectionName] }),
+        body: JSON.stringify([collectionName]),
       });
       
       if (!response.ok) {

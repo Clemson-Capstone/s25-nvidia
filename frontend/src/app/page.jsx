@@ -115,6 +115,10 @@ export default function ChatPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
   
+  // Server URLs
+  const RAG_SERVER_URL = "http://localhost:8081";  // For retrieval operations
+  const INGESTION_SERVER_URL = "http://localhost:8082";  // For ingestion operations
+  
   // State for collections
   const [collections, setCollections] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState('default');
@@ -125,8 +129,8 @@ export default function ChatPage() {
       // Always require a collection name, defaulting to 'default' if none provided
       const collection = collectionName || 'default';
       
-      // Use the v1 API with collection_name parameter
-      const response = await fetch(`http://localhost:8081/v1/documents?collection_name=${encodeURIComponent(collection)}`);
+      // Use the v1 API with collection_name parameter from the INGESTION server
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/documents?collection_name=${encodeURIComponent(collection)}`);
       if (!response.ok) throw new Error('Failed to fetch documents');
       const data = await response.json();
       setDocuments(data.documents || []);
@@ -198,7 +202,7 @@ export default function ChatPage() {
   // Fetch available collections
   const fetchCollections = async () => {
     try {
-      const response = await fetch('http://localhost:8081/v1/collections');
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/collections`);
       if (!response.ok) throw new Error('Failed to fetch collections');
       
       const data = await response.json();
@@ -817,8 +821,8 @@ export default function ChatPage() {
         enable_citations: true  // Enable citations from the RAG server
       };
       
-      // Use the v1 API endpoint for the generate request
-      const response = await fetch('http://localhost:8081/v1/generate', {
+      // Use the v1 API endpoint for the generate request from the RAG server
+      const response = await fetch(`${RAG_SERVER_URL}/v1/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
