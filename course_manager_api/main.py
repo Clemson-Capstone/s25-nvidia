@@ -74,7 +74,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Define the RAG server URL
+# Define the RAG server URL with the updated base URL
 RAG_SERVER_URL = "http://host.docker.internal:8081"
 
 # Define request models
@@ -198,9 +198,9 @@ class CanvasClient:
         
         return save_path
 
-async def upload_to_rag(file_path, file_name):
-    """Upload a file to the RAG server using NVIDIA's simpler approach"""
-    print(f"[UPLOAD_TO_RAG] Starting upload for {file_name} from {file_path}")
+async def upload_to_rag(file_path, file_name, collection_name="default"):
+    """Upload a file to the RAG server using NVIDIA's new approach for knowledge base management"""
+    print(f"[UPLOAD_TO_RAG] Starting upload for {file_name} from {file_path} to collection: {collection_name}")
     
     try:
         # Check if file exists and has content
@@ -231,11 +231,15 @@ async def upload_to_rag(file_path, file_name):
         
         print(f"[UPLOAD_TO_RAG] Using mime type: {mime_type}")
         
-        # Create files dict for request - this follows NVIDIA's implementation exactly
+        # Check if collection exists, if not create it
+        await ensure_collection_exists(collection_name)
+        
+        # Create files dict for request - now including collection name parameter
         with open(file_path, 'rb') as f:
             files = {"file": (file_name, f, mime_type)}
             
-            url = f"{RAG_SERVER_URL}/documents"
+            # Use the V1 API endpoints
+            url = f"{RAG_SERVER_URL}/v1/documents?collection_name={collection_name}"
             print(f"[UPLOAD_TO_RAG] Sending request to: {url}")
             
             # Set a longer timeout for larger files
@@ -245,7 +249,7 @@ async def upload_to_rag(file_path, file_name):
             if response.status_code == 200:
                 print(f"[UPLOAD_TO_RAG] Upload successful: {response.text}")
                 UPLOADS_TO_RAG.labels(status="success").inc()
-                return {"status": "success"}
+                return {"status": "success", "collection_name": collection_name}
             else:
                 print(f"[UPLOAD_TO_RAG] Upload failed: {response.text}")
                 UPLOADS_TO_RAG.labels(status="error_rag_server").inc()
@@ -254,6 +258,46 @@ async def upload_to_rag(file_path, file_name):
     except Exception as e:
         print(f"[UPLOAD_TO_RAG] EXCEPTION: Error uploading file {file_name} to RAG: {str(e)}")
         UPLOADS_TO_RAG.labels(status="error_exception").inc()
+        import traceback
+        print(traceback.format_exc())
+        raise e
+
+async def ensure_collection_exists(collection_name):
+    """Make sure a collection exists, create it if it doesn't"""
+    try:
+        # First, check if collection exists
+        url = f"{RAG_SERVER_URL}/v1/collections"
+        response = requests.get(url)
+        
+        if response.status_code != 200:
+            print(f"[ENSURE_COLLECTION] Failed to get collections: {response.text}")
+            raise Exception(f"Failed to get collections: {response.text}")
+        
+        collections_data = response.json()
+        collections = collections_data.get("collections", [])
+        collection_names = [c.get("collection_name") for c in collections]
+        
+        # If collection doesn't exist, create it
+        if collection_name not in collection_names:
+            print(f"[ENSURE_COLLECTION] Creating collection: {collection_name}")
+            create_url = f"{RAG_SERVER_URL}/v1/collections"
+            create_response = requests.post(
+                create_url,
+                json={"collection_name": collection_name}
+            )
+            
+            if create_response.status_code != 200:
+                print(f"[ENSURE_COLLECTION] Failed to create collection: {create_response.text}")
+                raise Exception(f"Failed to create collection: {create_response.text}")
+            
+            print(f"[ENSURE_COLLECTION] Collection {collection_name} created successfully")
+        else:
+            print(f"[ENSURE_COLLECTION] Collection {collection_name} already exists")
+        
+        return True
+    
+    except Exception as e:
+        print(f"[ENSURE_COLLECTION] Error ensuring collection exists: {str(e)}")
         import traceback
         print(traceback.format_exc())
         raise e
@@ -507,6 +551,9 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
         failed_count = 0
         failed_items = []
         
+        # Create a collection name based on course information
+        collection_name = f"course_{course_id}"
+        
         # Process each selected item
         for i, item in enumerate(selected_items):
             print(f"[UPLOAD_SELECTED_TO_RAG] Processing item {i+1}/{len(selected_items)}: {item.name} (type: {item.type}, id: {item.id})")
@@ -544,9 +591,9 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     with open(temp_file_path, "w") as f:
                         f.write(html_content)
                     
-                    # Upload the placeholder
+                    # Upload the placeholder to the collection
                     filename = f"{item_name}.html"
-                    await upload_to_rag(temp_file_path, filename)
+                    await upload_to_rag(temp_file_path, filename, collection_name)
                     success_count += 1
                     continue
                 
@@ -613,11 +660,11 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     print(f"[UPLOAD_SELECTED_TO_RAG] WARNING: Temporary file is empty")
                     raise Exception("Downloaded content is empty")
                 
-                # Upload the file to the RAG server
+                # Upload the file to the RAG server with the collection name
                 filename = f"{item_name}{file_extension}"
-                print(f"[UPLOAD_SELECTED_TO_RAG] Uploading to RAG: {filename}")
+                print(f"[UPLOAD_SELECTED_TO_RAG] Uploading to RAG collection '{collection_name}': {filename}")
                 try:
-                    rag_response = await upload_to_rag(temp_file_path, filename)
+                    rag_response = await upload_to_rag(temp_file_path, filename, collection_name)
                     print(f"[UPLOAD_SELECTED_TO_RAG] Upload successful: {rag_response}")
                 except Exception as upload_error:
                     print(f"[UPLOAD_SELECTED_TO_RAG] ERROR during upload: {str(upload_error)}")

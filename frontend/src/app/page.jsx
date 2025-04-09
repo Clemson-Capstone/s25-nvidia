@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -114,9 +114,30 @@ export default function ChatPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
+  
+  // State for collections
+  const [collections, setCollections] = useState([]);
+  const [selectedCollection, setSelectedCollection] = useState('default');
+  
+  // Fetch documents from the knowledge base - Define this function BEFORE it's used in any hooks
+  const fetchDocuments = async (collectionName) => {
+    try {
+      // Always require a collection name, defaulting to 'default' if none provided
+      const collection = collectionName || 'default';
+      
+      // Use the v1 API with collection_name parameter
+      const response = await fetch(`http://localhost:8081/v1/documents?collection_name=${encodeURIComponent(collection)}`);
+      if (!response.ok) throw new Error('Failed to fetch documents');
+      const data = await response.json();
+      setDocuments(data.documents || []);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    }
+  };
 
   useEffect(() => {
-    fetchDocuments();
+    // Fetch collections first
+    fetchCollections();
     
     // Load token and userId from localStorage if available
     const savedToken = localStorage.getItem('canvasToken');
@@ -135,7 +156,23 @@ export default function ChatPage() {
     if (savedToken && savedUserId) {
       fetchCourses(savedToken);
     }
+    
+    // Fetch documents with default collection - do this after collections are loaded
+    setTimeout(() => {
+      fetchDocuments('default');
+    }, 100);
   }, []);
+  
+  // Define the function that handles both setting the collection and fetching documents
+  const fetchCollectionDocuments = useCallback((collectionName) => {
+    if (collectionName) {
+      setSelectedCollection(collectionName);
+      // Use a setTimeout to ensure this runs after state is updated
+      setTimeout(() => {
+        fetchDocuments(collectionName);
+      }, 0);
+    }
+  }, []); // Empty dependency array since fetchDocuments is now in scope
   
   // Check for downloaded courses whenever userId changes
   useEffect(() => {
@@ -156,14 +193,30 @@ export default function ChatPage() {
     }
   }, [courseContent, contentType, selectedTab]);
 
-  const fetchDocuments = async () => {
+  // These state declarations have been moved to the top of the component
+  
+  // Fetch available collections
+  const fetchCollections = async () => {
     try {
-      const response = await fetch('http://localhost:8081/documents');
-      if (!response.ok) throw new Error('Failed to fetch documents');
+      const response = await fetch('http://localhost:8081/v1/collections');
+      if (!response.ok) throw new Error('Failed to fetch collections');
+      
       const data = await response.json();
-      setDocuments(data.documents || []);
+      setCollections(data.collections || []);
+      
+      // If no collection is selected and collections exist, select the default or first one
+      if ((!selectedCollection || selectedCollection === '') && data.collections && data.collections.length > 0) {
+        const defaultColl = data.collections.find(c => c.collection_name === 'default');
+        if (defaultColl) {
+          // Use the new function instead of directly setting the state
+          fetchCollectionDocuments('default');
+        } else if (data.collections.length > 0) {
+          // Use the new function instead of directly setting the state
+          fetchCollectionDocuments(data.collections[0].collection_name);
+        }
+      }
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      console.error('Error fetching collections:', error);
     }
   };
 
@@ -509,7 +562,10 @@ export default function ChatPage() {
     })));
     
     try {
-      // Call the backend to upload all selected items to RAG
+      // Create a collection name based on the course ID
+      const courseCollection = `course_${selectedCourse}`;
+      
+      // Call the backend to upload all selected items to the RAG collection
       const response = await fetch('http://localhost:8012/upload_selected_to_rag', {
         method: 'POST',
         headers: {
@@ -519,7 +575,8 @@ export default function ChatPage() {
           course_id: selectedCourse,
           token: canvasToken,
           user_id: userId,
-          selected_items: itemsToUpload
+          selected_items: itemsToUpload,
+          collection_name: courseCollection
         }),
       });
       
@@ -545,7 +602,7 @@ export default function ChatPage() {
       })));
       
       // Refresh the knowledge base document list
-      fetchDocuments();
+      fetchDocuments(selectedCollection);
       
       // Clear the processing files after a delay
       setTimeout(() => {
@@ -738,21 +795,30 @@ export default function ChatPage() {
     setStreamingMessage('');
 
     let accumulatedMessage = '';
+    let latestCitations = [];
 
     try {
+      // Determine which collection to use based on selected course
+      let collectionName = "";
+      if (useKnowledgeBase && selectedCourse) {
+        collectionName = `course_${selectedCourse}`;
+      }
+
       const requestBody = {
         messages: [...messages, newMessage],
         use_knowledge_base: useKnowledgeBase,
-      	persona,
+        persona,
         temperature: 0.7,
         top_p: 0.8,
         max_tokens: 1024,
         top_k: 4,
-        collection_name: "",
-        model: ""
+        collection_name: collectionName,
+        model: "",
+        enable_citations: true  // Enable citations from the RAG server
       };
       
-      const response = await fetch('http://localhost:8081/generate', {
+      // Use the v1 API endpoint for the generate request
+      const response = await fetch('http://localhost:8081/v1/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -783,20 +849,34 @@ export default function ChatPage() {
                 if (accumulatedMessage) {
                   setMessages(prev => [...prev, {
                     role: 'assistant',
-                    content: accumulatedMessage
+                    content: accumulatedMessage,
+                    citations: latestCitations.length > 0 ? latestCitations : undefined
                   }]);
+                  
                   if (ttsEnabled) {
-                    speakText(accumulatedMessage);
+                    // Extract text without citation markers for TTS
+                    const textOnly = accumulatedMessage.replace(/<cite[^>]*>|<\/cite>/g, '');
+                    speakText(textOnly);
                   }
                   setStreamingMessage('');
                 }
                 break;
               }
 
-              if (jsonData.choices?.[0]?.message?.content) {
-                const content = jsonData.choices[0].message.content;
+              // Process message content
+              if (jsonData.choices?.[0]?.delta?.content || jsonData.choices?.[0]?.message?.content) {
+                const content = jsonData.choices[0]?.delta?.content || jsonData.choices[0]?.message?.content;
                 accumulatedMessage += content;
                 setStreamingMessage(accumulatedMessage);
+              }
+
+              // Process citations if available
+              if (jsonData.citations?.results?.length > 0) {
+                latestCitations = jsonData.citations.results.map(source => ({
+                  text: source.content,
+                  source: source.document_name,
+                  document_type: source.document_type || "text",
+                }));
               }
             } catch (e) {
               console.error('Error parsing JSON from chunk:', e);
@@ -1066,6 +1146,10 @@ export default function ChatPage() {
             <KnowledgeBase 
               documents={documents}
               fetchDocuments={fetchDocuments}
+              fetchCollections={fetchCollections}
+              collections={collections}
+              selectedCollection={selectedCollection}
+              setSelectedCollection={fetchCollectionDocuments}
               setError={setError}
               setSuccessMessage={setSuccessMessage}
               canvasToken={canvasToken}

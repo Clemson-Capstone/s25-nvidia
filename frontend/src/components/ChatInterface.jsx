@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from 'react-markdown';
 
 const ChatInterface = ({
@@ -14,6 +15,7 @@ const ChatInterface = ({
   isLoading
 }) => {
   const messagesEndRef = useRef(null);
+  const [activeCitations, setActiveCitations] = useState(null);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -22,6 +24,37 @@ const ChatInterface = ({
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  
+  // Toggle citations panel
+  const toggleCitations = (citations) => {
+    if (activeCitations === citations) {
+      setActiveCitations(null);
+    } else {
+      setActiveCitations(citations);
+    }
+  };
+  
+  // Render citations panel
+  const renderCitationsPanel = () => {
+    if (!activeCitations || activeCitations.length === 0) return null;
+    
+    return (
+      <div className="mt-2 p-3 bg-black/30 border border-border rounded-lg">
+        <h3 className="font-medium text-sm mb-2">Citations</h3>
+        <div className="space-y-2">
+          {activeCitations.map((citation, index) => (
+            <div key={index} className="p-2 bg-card/50 rounded border-l-2 border-primary text-sm">
+              <div className="flex justify-between items-start mb-1">
+                <Badge variant="outline" className="text-xs">Source {index + 1}</Badge>
+                <span className="text-xs opacity-70">{citation.source}</span>
+              </div>
+              <p className="text-xs opacity-90">{citation.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   // Custom styles for markdown elements
@@ -57,26 +90,42 @@ const ChatInterface = ({
                     : 'bg-card text-card-foreground border border-border'
                 }`}
               >
-                <ReactMarkdown
-                  components={{
-                    p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
-                    h1: ({ node, ...props }) => <h1 className={markdownStyles.h1} {...props} />,
-                    h2: ({ node, ...props }) => <h2 className={markdownStyles.h2} {...props} />,
-                    h3: ({ node, ...props }) => <h3 className={markdownStyles.h3} {...props} />,
-                    ul: ({ node, ...props }) => <ul className={markdownStyles.ul} {...props} />,
-                    ol: ({ node, ...props }) => <ol className={markdownStyles.ol} {...props} />,
-                    li: ({ node, ...props }) => <li className={markdownStyles.li} {...props} />,
-                    blockquote: ({ node, ...props }) => <blockquote className={markdownStyles.blockquote} {...props} />,
-                    code: ({ node, inline, ...props }) => 
-                      inline ? (
-                        <code className={`${markdownStyles.code} ${message.role === 'user' ? 'bg-orange-200/30 text-white' : ''}`} {...props} />
-                      ) : (
-                        <pre className={`${markdownStyles.pre} ${message.role === 'user' ? 'bg-orange-700/50' : ''}`}><code {...props} /></pre>
-                      ),
-                  }}
-                >
-                  {message.content}
-                </ReactMarkdown>
+                <div>
+                  <ReactMarkdown
+                    components={{
+                      p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
+                      h1: ({ node, ...props }) => <h1 className={markdownStyles.h1} {...props} />,
+                      h2: ({ node, ...props }) => <h2 className={markdownStyles.h2} {...props} />,
+                      h3: ({ node, ...props }) => <h3 className={markdownStyles.h3} {...props} />,
+                      ul: ({ node, ...props }) => <ul className={markdownStyles.ul} {...props} />,
+                      ol: ({ node, ...props }) => <ol className={markdownStyles.ol} {...props} />,
+                      li: ({ node, ...props }) => <li className={markdownStyles.li} {...props} />,
+                      blockquote: ({ node, ...props }) => <blockquote className={markdownStyles.blockquote} {...props} />,
+                      code: ({ node, inline, ...props }) => 
+                        inline ? (
+                          <code className={`${markdownStyles.code} ${message.role === 'user' ? 'bg-orange-200/30 text-white' : ''}`} {...props} />
+                        ) : (
+                          <pre className={`${markdownStyles.pre} ${message.role === 'user' ? 'bg-orange-700/50' : ''}`}><code {...props} /></pre>
+                        ),
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                  
+                  {message.role === 'assistant' && message.citations && message.citations.length > 0 && (
+                    <div className="mt-2 text-xs">
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto text-primary hover:text-primary/80"
+                        onClick={() => toggleCitations(message.citations)}
+                      >
+                        {message.citations.length} Citation{message.citations.length > 1 ? 's' : ''}
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {message.role === 'assistant' && activeCitations === message.citations && renderCitationsPanel()}
+                </div>
               </div>
             </div>
           ))}
@@ -133,10 +182,32 @@ const ChatInterface = ({
             {isLoading ? 'Sending...' : 'Send'}
           </Button>
         </form>
-        <div className="mt-2">
-          <Button onClick={() => startSpeechRecognition(setInputMessage)} className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm" >
+        <div className="mt-2 flex gap-2">
+          <Button 
+            onClick={() => {
+              // Check if startSpeechRecognition is available globally
+              if (typeof window !== 'undefined' && window.startSpeechRecognition) {
+                window.startSpeechRecognition(setInputMessage);
+              } else if (typeof startSpeechRecognition === 'function') {
+                startSpeechRecognition(setInputMessage);
+              } else {
+                // Fallback if function isn't available
+                console.error("Speech recognition function not available");
+              }
+            }}
+            className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
+          >
             Start Speaking
           </Button>
+          {activeCitations && (
+            <Button 
+              variant="outline" 
+              onClick={() => setActiveCitations(null)}
+              className="border-primary/50 text-primary hover:bg-primary/10"
+            >
+              Hide Citations
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
