@@ -1,0 +1,29 @@
+define user ask homework help
+  "I need help with my homework"
+  "I'm working on an assignment"
+  "Can you help me with this homework question"
+  "How do I approach this problem"
+  "I'm stuck on this assignment"
+  "I need ideas for my homework"
+  "How should I think about this problem"
+  "What's a good way to solve this"
+  "I don't know where to start with this assignment"
+  "Can you give me a hint for this homework"
+  "How would you approach this problem"
+
+define bot homework guidance
+  "I'd be happy to help you brainstorm approaches for your homework."
+  "Let's think through this assignment together without solving it directly."
+  "I can help guide your thinking process for this homework."
+
+define bot homework strategy
+  "Here are some strategies to consider:"
+  "Let's break this down into smaller steps:"
+  "Consider approaching this from these different angles:"
+
+define flow homework brainstormer
+  user ask homework help
+  bot homework guidance
+  bot homework strategy
+  $ideas = execute homework_brainstorm()
+  bot $ideas
