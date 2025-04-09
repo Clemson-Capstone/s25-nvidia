@@ -1,0 +1,37 @@
+define user express greeting
+  "Hello"
+  "Hi"
+  "Wassup?"
+  "Hey"
+  
+define bot express greeting
+  "Hello! I am your virtual teaching assistant, feel free to ask me any questions about the course content or concepts!"
+
+def bot express note 
+  "Note triggered!!!"
+
+define bot ask what help
+  "Is there a particular assignment you need help with?"
+
+define flow greeting
+  user express greeting
+  bot express greeting
+  bot ask what help
+
+define bot refuse to respond
+  "I am not allowed to respond to that, sorry (self_check_input hit)"
+
+define user ask course material
+  $chunks = execute retrieve_relevant_chunks
+  "What is on the syllabus"
+  "What are the directions for project 3"
+  "When is lab 2 due?"
+
+define flow answer course content question
+  user ask course material
+  $chunks = execute retrieve_relevant_chunks()
+  $answer = execute process_course_content()
+  bot $answer
+
+define bot response with chunks
+  "Based on the information I have: {$chunks}"

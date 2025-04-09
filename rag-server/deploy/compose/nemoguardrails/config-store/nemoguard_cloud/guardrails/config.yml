@@ -10,12 +10,23 @@ models:
     model: meta/llama3-8b-instruct
     parameters:
       base_url: https://integrate.api.nvidia.com/v1
-
+actions:
+  - name: retrieve_relevant_chunks
+    module: actions
+  - name: quiz_response
+    module: actions
+  - name: code_debug_response
+    module: actions
+  - name: homework_brainstorm
+    module: actions
+  - name: process_course_content
+    module: actions
 rails:
   input:
     flows:
       - content safety check input $model=content_safety
       - topic safety check input $model=topic_control
+      
   output:
     flows:
       - content safety check output $model=content_safety
