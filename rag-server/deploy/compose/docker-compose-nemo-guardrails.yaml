@@ -8,6 +8,7 @@ services:
       - ./nemoguardrails/config-store:/config-store
     environment:
       CONFIG_STORE_PATH: /config-store
+      GUARDRAILS_CONFIG_PATH: /config-store/nemoguard_cloud/guardrails/rails 
       NIM_ENDPOINT_API_KEY: ${NVIDIA_API_KEY}
       NIM_ENDPOINT_URL: ${NIM_ENDPOINT_URL:-http://nim-llm:8000/v1}
       DEFAULT_CONFIG_ID: ${DEFAULT_CONFIG:-nemoguard}
