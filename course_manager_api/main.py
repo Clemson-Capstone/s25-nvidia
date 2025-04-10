@@ -105,6 +105,7 @@ class DownloadAndUploadRequest(BaseModel):
     course_id: int
     token: str
     user_id: Optional[str] = None
+    collection_name: Optional[str] = "default"  # Default to 'default' collection
 
 class SelectedItem(BaseModel):
     """Model representing a selected item from Canvas"""
@@ -286,6 +287,10 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
 async def ensure_collection_exists(collection_name):
     """Make sure a collection exists, create it if it doesn't"""
     try:
+        # Always make sure 'default' collection exists
+        if collection_name != 'default':
+            await ensure_collection_exists('default')
+            
         # First, check if collection exists using the INGESTION API
         url = f"{INGESTION_SERVER_URL}/v1/collections"
         
@@ -396,6 +401,9 @@ async def download_course(request: DownloadCourseRequest):
         # Create directory structure
         course_dir = f"course_data/{user_id}/{course_id}"
         os.makedirs(course_dir, exist_ok=True)
+        
+        # Ensure the default collection exists
+        await ensure_collection_exists("default")
         
         # Get course info
         course_materials = client.get_course_materials(course_id)
@@ -592,8 +600,8 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
         failed_count = 0
         failed_items = []
         
-        # Create a collection name based on course information
-        collection_name = f"course_{course_id}"
+        # Always use the default collection regardless of course
+        collection_name = "default"
         
         # Process each selected item
         for i, item in enumerate(selected_items):
@@ -759,6 +767,10 @@ async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
     if not request.token:
         raise HTTPException(status_code=400, detail="Token is required")
     
+    # Ensure the collection exists (defaults to 'default')
+    collection_name = request.collection_name
+    await ensure_collection_exists(collection_name)
+    
     ACTIVE_REQUESTS.inc()
     
     try:
@@ -808,8 +820,8 @@ async def download_and_upload_to_rag(request: DownloadAndUploadRequest):
             if file_size > 0:
                 FILE_SIZES.observe(file_size)
             
-            # Upload to RAG
-            rag_response = await upload_to_rag(temp_file_path, file_name)
+            # Upload to RAG with the specified collection name (defaults to "default")
+            rag_response = await upload_to_rag(temp_file_path, file_name, request.collection_name)
             
             return {
                 "status": "success",

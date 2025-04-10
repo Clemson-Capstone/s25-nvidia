@@ -49,16 +49,19 @@ const KnowledgeBase = ({
   const [uploadingToRag, setUploadingToRag] = useState(false);
   const fileInputRef = useRef(null);
   
-  // Local collection state
-  const [localSelectedCollection, setLocalSelectedCollection] = useState(propSelectedCollection || 'default');
+  // Local collection state - always use 'default' if not explicitly set
+  const [localSelectedCollection, setLocalSelectedCollection] = useState('default');
   const [newCollectionName, setNewCollectionName] = useState('');
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
   const [showCollectionInput, setShowCollectionInput] = useState(false);
   
-  // Sync with parent component when prop changes
+  // Sync with parent component when prop changes, but prioritize 'default'
   useEffect(() => {
     if (propSelectedCollection) {
       setLocalSelectedCollection(propSelectedCollection);
+    } else {
+      // If no collection is provided, use default
+      setLocalSelectedCollection('default');
     }
   }, [propSelectedCollection]);
   
@@ -169,16 +172,17 @@ const KnowledgeBase = ({
     setError('');
     
     try {
+      // Use URLSearchParams to properly encode the query parameters
+      const params = new URLSearchParams({
+        collection_type: "text",
+        embedding_dimension: 2048
+      });
+      
       // Use the ingestion server for collection management
-      const response = await fetch(`${INGESTION_SERVER_URL}/v1/collections`, {
+      const response = await fetch(`${INGESTION_SERVER_URL}/v1/collections?${params.toString()}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-        },
-        // Update to match ingestion API format
-        params: {
-          "collection_type": "text",
-          "embedding_dimension": 2048
         },
         body: JSON.stringify([newCollectionName]),
       });
@@ -317,7 +321,10 @@ const KnowledgeBase = ({
       return;
     }
     
-    if (!localSelectedCollection) {
+    // Use selected collection, falling back to default if none selected
+    const targetCollection = localSelectedCollection || 'default';
+    
+    if (!targetCollection) {
       setError('Please select a collection or create a new one first');
       return;
     }
@@ -387,47 +394,6 @@ const KnowledgeBase = ({
     // Update the processing files list
     setProcessingFiles(filesToProcess);
     
-    // Create course collection if using a specific one for the course
-    let courseCollection = localSelectedCollection;
-    if (localSelectedCollection === 'course_auto') {
-      // Create a collection specifically for this course
-      courseCollection = `course_${selectedCourse}`;
-      
-      try {
-        // Check if the collection already exists
-        const existingCollection = collections.find(c => 
-          c.collection_name === courseCollection
-        );
-        
-        if (!existingCollection) {
-          // Create collection for this course using the ingestion server
-          const createResponse = await fetch(`${INGESTION_SERVER_URL}/v1/collections`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            params: {
-              "collection_type": "text",
-              "embedding_dimension": 2048
-            },
-            body: JSON.stringify([courseCollection]),
-          });
-          
-          if (!createResponse.ok) {
-            throw new Error(`Failed to create collection "${courseCollection}"`);
-          }
-          
-          // Update collections list
-          await fetchCollections();
-        }
-      } catch (error) {
-        console.error('Error creating course collection:', error);
-        setError(`Failed to create course collection: ${error.message}`);
-        setUploadingToRag(false);
-        return;
-      }
-    }
-    
     // Process each file sequentially
     for (let i = 0; i < filesToProcess.length; i++) {
       const file = filesToProcess[i];
@@ -474,7 +440,7 @@ const KnowledgeBase = ({
             course_id: parseInt(selectedCourse),
             token: canvasToken,
             user_id: String(userId),
-            collection_name: courseCollection
+            collection_name: targetCollection
           }),
         });
         
@@ -511,7 +477,7 @@ const KnowledgeBase = ({
     
     // Refresh the document list
     await fetchDocuments();
-    setSuccessMessage(`Uploaded ${filesToProcess.length} items to the collection "${courseCollection}"!`);
+    setSuccessMessage(`Uploaded ${filesToProcess.length} items to the collection "${targetCollection}"!`);
     setUploadingToRag(false);
     
     // Clear the processing files after a delay
@@ -789,7 +755,6 @@ const KnowledgeBase = ({
                             </SelectItem>
                           ))
                         )}
-                        <SelectItem value="course_auto">Course-Specific (Auto)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -862,6 +827,11 @@ const KnowledgeBase = ({
             {canvasToken && (
               <div>
                 <h3 className="text-lg font-medium mb-2">Upload from Canvas</h3>
+                
+                {/* Collection Notice */}
+                <div className="p-3 mb-4 bg-blue-50 text-blue-700 rounded-md border border-blue-200">
+                  <p className="text-sm">All uploaded Canvas content will be saved to the <strong>{localSelectedCollection || 'default'}</strong> collection.</p>
+                </div>
                 
                 {/* Course Selection */}
                 <div className="mb-4">

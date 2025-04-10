@@ -469,6 +469,13 @@
         "url": "https://clemson.instructure.com/files/25058887/download?download_frd=1&verifier=xtcvchydhYW8l3By4t2Hs0qygNw7x6IVH0Lta7Gi"
     },
     {
+        "name": "Fortifying_Castles_in_the_Sky.pdf",
+        "path": "course_data/250661/249176/files/Fortifying_Castles_in_the_Sky.pdf",
+        "type": "application/pdf",
+        "size": 1631612,
+        "url": "https://clemson.instructure.com/files/26364070/download?download_frd=1&verifier=S2PLkGjwqDRo30OxOcechv4RoeQTbq097Q0YvpQ2"
+    },
+    {
         "name": "GroupMidtermProject.pptx",
         "path": "course_data/250661/249176/files/GroupMidtermProject.pptx",
         "type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -691,12 +698,5 @@
         "type": "image/png",
         "size": 1245170,
         "url": "https://clemson.instructure.com/files/25058927/download?download_frd=1&verifier=UNTcCrBncA1yJ4uMgBxg5eMvMW1nW2j2yhLSN315"
-    },
-    {
-        "name": "Screen Shot 2023-10-20 at 11.39.28 AM.png",
-        "path": "course_data/250661/249176/files/Screen Shot 2023-10-20 at 11.39.28 AM.png",
-        "type": "image/png",
-        "size": 13465,
-        "url": "https://clemson.instructure.com/files/25058900/download?download_frd=1&verifier=GgCFgm7n8dynU3nnVjmeSUUBTQ1DsvXLBSW3xlxo"
     }
 ]

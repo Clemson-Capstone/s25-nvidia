@@ -161,7 +161,10 @@ export default function ChatPage() {
       fetchCourses(savedToken);
     }
     
-    // Fetch documents with default collection - do this after collections are loaded
+    // Ensure we're always fetching from the default collection first
+    setSelectedCollection('default');
+    
+    // Fetch documents with default collection
     setTimeout(() => {
       fetchDocuments('default');
     }, 100);
@@ -199,26 +202,56 @@ export default function ChatPage() {
 
   // These state declarations have been moved to the top of the component
   
-  // Fetch available collections
+  // Fetch available collections and ensure default exists
   const fetchCollections = async () => {
     try {
       const response = await fetch(`${INGESTION_SERVER_URL}/v1/collections`);
       if (!response.ok) throw new Error('Failed to fetch collections');
       
       const data = await response.json();
-      setCollections(data.collections || []);
+      const collections = data.collections || [];
       
-      // If no collection is selected and collections exist, select the default or first one
-      if ((!selectedCollection || selectedCollection === '') && data.collections && data.collections.length > 0) {
-        const defaultColl = data.collections.find(c => c.collection_name === 'default');
-        if (defaultColl) {
-          // Use the new function instead of directly setting the state
-          fetchCollectionDocuments('default');
-        } else if (data.collections.length > 0) {
-          // Use the new function instead of directly setting the state
-          fetchCollectionDocuments(data.collections[0].collection_name);
+      // Check if default collection exists
+      const defaultExists = collections.some(c => c.collection_name === 'default');
+      
+      // If default collection doesn't exist, create it
+      if (!defaultExists) {
+        try {
+          // Use URLSearchParams to properly encode the query parameters for fetch
+          const params = new URLSearchParams({
+            collection_type: "text",
+            embedding_dimension: 2048
+          });
+          
+          const createResponse = await fetch(`${INGESTION_SERVER_URL}/v1/collections?${params.toString()}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(['default']),
+          });
+          
+          if (!createResponse.ok) {
+            throw new Error('Failed to create default collection');
+          }
+          
+          // Fetch collections again after creating default
+          const refreshResponse = await fetch(`${INGESTION_SERVER_URL}/v1/collections`);
+          if (refreshResponse.ok) {
+            const refreshedData = await refreshResponse.json();
+            setCollections(refreshedData.collections || []);
+          }
+        } catch (createError) {
+          console.error('Error creating default collection:', createError);
         }
+      } else {
+        // Set collections if default already exists
+        setCollections(collections);
       }
+      
+      // Always select the default collection
+      fetchCollectionDocuments('default');
+      
     } catch (error) {
       console.error('Error fetching collections:', error);
     }
@@ -580,7 +613,7 @@ export default function ChatPage() {
           token: canvasToken,
           user_id: userId,
           selected_items: itemsToUpload,
-          collection_name: courseCollection
+          collection_name: "default"
         }),
       });
       
@@ -605,8 +638,8 @@ export default function ChatPage() {
         status: 'complete'
       })));
       
-      // Refresh the knowledge base document list
-      fetchDocuments(selectedCollection);
+      // Refresh the knowledge base document list - always get from 'default' collection
+      fetchDocuments('default');
       
       // Clear the processing files after a delay
       setTimeout(() => {
