@@ -709,8 +709,20 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     print(f"[UPLOAD_SELECTED_TO_RAG] WARNING: Temporary file is empty")
                     raise Exception("Downloaded content is empty")
                 
-                # Upload the file to the RAG server with the collection name
-                filename = f"{item_name}{file_extension}"
+                # Check the content to see if it's a HTML fallback or actual file content
+                with open(temp_file_path, 'rb') as f:
+                    first_bytes = f.read(50)  # Read first 50 bytes to check file type
+                    is_html = b'<html' in first_bytes or b'<!DOCTYPE html' in first_bytes
+                
+                # Upload the file to the RAG server with the collection name and appropriate extension
+                if is_html and file_extension != '.html':
+                    # If we got HTML when we expected something else, use HTML extension
+                    filename = f"{item_name}.html"
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Content appears to be HTML, using .html extension")
+                else:
+                    # Use original extension
+                    filename = f"{item_name}{file_extension}"
+                
                 print(f"[UPLOAD_SELECTED_TO_RAG] Uploading to RAG collection '{collection_name}': {filename}")
                 try:
                     rag_response = await upload_to_rag(temp_file_path, filename, collection_name)

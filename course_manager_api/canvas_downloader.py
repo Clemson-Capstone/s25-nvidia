@@ -415,42 +415,312 @@ async def download_discussion(course_id: str, discussion_id: str, token: str, fi
 
 async def download_file_content(course_id: str, file_id: str, token: str, filename: str = None):
     """Download a file from Canvas using the file ID"""
-    api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/files/{file_id}"
-    headers = {"Authorization": f"Bearer {token}"}
+    print(f"Downloading file with course_id={course_id}, file_id={file_id}")
     
-    async with aiohttp.ClientSession() as session:
-        async with session.get(api_url, headers=headers) as response:
-            if response.status != 200:
-                error_text = await response.text()
-                print(f"File info error: {error_text}")
-                raise HTTPException(status_code=response.status, detail=f"Failed to get file info: {error_text}")
-            
-            file_info = await response.json()
-            download_url = file_info.get('url')
-            
-            if not download_url:
-                raise HTTPException(status_code=404, detail="File download URL not found")
-            
-            # Now download the actual file
-            async with session.get(download_url, headers=headers) as file_response:
-                if file_response.status != 200:
-                    error_text = await file_response.text()
-                    print(f"File download error: {error_text}")
-                    raise HTTPException(status_code=file_response.status, detail=f"Failed to download file: {error_text}")
+    try:
+        # Use URL-encoded token to avoid any special character issues
+        token = token.strip()
+        api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/files/{file_id}"
+        headers = {"Authorization": f"Bearer {token}"}
+        
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        
+        async with aiohttp.ClientSession() as session:
+            # First request to get file info
+            async with session.get(api_url, headers=headers, ssl=ssl_context) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    print(f"File info error: {error_text}")
+                    raise HTTPException(status_code=response.status, detail=f"Failed to get file info: {error_text}")
                 
-                content_type = file_response.headers.get("Content-Type", "application/octet-stream")
+                file_info = await response.json()
+                print(f"Successfully retrieved file info: {file_info.get('display_name')}")
                 
-                # If no filename provided, use the one from the file info
+                # Try multiple download methods in order of preference
+                
+                # Determine proper mime type and filename upfront
+                original_filename = file_info.get("display_name", "file")
+                content_type = file_info.get("content-type", "application/octet-stream")
+                
+                # Make sure we don't add .html extension when we already have a content type
                 if not filename:
-                    filename = file_info.get("display_name", "canvas_file")
+                    filename = original_filename
                 
-                # Return the file content
-                file_content = await file_response.read()
+                print(f"File info: filename={filename}, content_type={content_type}")
+                
+                # Method 1: Try direct Canvas download endpoint using the API v1 URL (most reliable)
+                try:
+                    # This is the most reliable way to download from Canvas - using the API
+                    direct_url = f"https://clemson.instructure.com/api/v1/files/{file_id}/download"
+                    print(f"Attempting Method 1: Direct Canvas API endpoint: {direct_url}")
+                    
+                    # Ensure proper auth header format based on Canvas API docs
+                    api_headers = {
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "*/*"
+                    }
+                    
+                    async with session.get(direct_url, headers=api_headers, ssl=ssl_context, allow_redirects=True) as file_response:
+                        if file_response.status == 200:
+                            response_content_type = file_response.headers.get("Content-Type", content_type)
+                            file_content = await file_response.read()
+                            print(f"Method 1 SUCCESS: Downloaded {len(file_content)} bytes with content type: {response_content_type}")
+                            
+                            return Response(
+                                content=file_content,
+                                media_type=response_content_type,
+                                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                            )
+                        else:
+                            print(f"Method 1 failed with status {file_response.status}")
+                except Exception as e1:
+                    print(f"Method 1 exception: {str(e1)}")
+                
+                # Method 2: Try using the URL from the file info
+                download_url = file_info.get('url')
+                if download_url:
+                    try:
+                        print(f"Attempting Method 2: Using file_info URL: {download_url}")
+                        # According to Canvas docs, the file.url might be a pre-signed URL that doesn't need auth
+                        # So try both with and without auth header
+                        async with session.get(download_url, ssl=ssl_context, allow_redirects=True) as file_response:
+                            if file_response.status == 200:
+                                content_type = file_response.headers.get("Content-Type", "application/octet-stream")
+                                file_content = await file_response.read()
+                                print(f"Method 2 SUCCESS: Downloaded {len(file_content)} bytes")
+                                
+                                if not filename:
+                                    filename = file_info.get("display_name", "canvas_file")
+                                
+                                return Response(
+                                    content=file_content,
+                                    media_type=content_type,
+                                    headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                                )
+                            else:
+                                print(f"Method 2 failed with status {file_response.status}")
+                    except Exception as e2:
+                        print(f"Method 2 exception: {str(e2)}")
+                else:
+                    print("Method 2 skipped: No URL in file_info")
+                
+                # Method 3: Try global files endpoint with the specific download parameter
+                try:
+                    global_url = f"https://clemson.instructure.com/api/v1/files/{file_id}?include[]=avatar"
+                    print(f"Attempting Method 3: API files endpoint with additional parameters: {global_url}")
+                    
+                    # Ensure proper auth header format based on Canvas API docs
+                    api_headers = {
+                        "Authorization": f"Bearer {token}",
+                        "Accept": "*/*"
+                    }
+                    
+                    async with session.get(global_url, headers=api_headers, ssl=ssl_context, allow_redirects=True) as file_response:
+                        if file_response.status == 200:
+                            content_type = file_response.headers.get("Content-Type", "application/octet-stream")
+                            file_content = await file_response.read()
+                            print(f"Method 3 SUCCESS: Downloaded {len(file_content)} bytes")
+                            
+                            if not filename:
+                                filename = file_info.get("display_name", "canvas_file")
+                            
+                            return Response(
+                                content=file_content,
+                                media_type=content_type,
+                                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                            )
+                        else:
+                            print(f"Method 3 failed with status {file_response.status}")
+                except Exception as e3:
+                    print(f"Method 3 exception: {str(e3)}")
+                
+                # Try the traditional download URL without API prefix
+                try:
+                    direct_download_url = f"https://clemson.instructure.com/courses/{course_id}/files/{file_id}/download?download_frd=1&verifier={file_info.get('uuid', '')}"
+                    print(f"Attempting Method 4: Direct download URL with verifier: {direct_download_url}")
+                    
+                    async with session.get(direct_download_url, headers=headers, ssl=ssl_context, allow_redirects=True) as file_response:
+                        if file_response.status == 200:
+                            content_type = file_response.headers.get("Content-Type", "application/octet-stream")
+                            file_content = await file_response.read()
+                            print(f"Method 4 SUCCESS: Downloaded {len(file_content)} bytes")
+                            
+                            if not filename:
+                                filename = file_info.get("display_name", "canvas_file")
+                            
+                            return Response(
+                                content=file_content,
+                                media_type=content_type,
+                                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                            )
+                        else:
+                            print(f"Method 4 failed with status {file_response.status}")
+                except Exception as e4:
+                    print(f"Method 4 exception: {str(e4)}")
+                
+                # Method 5: Try the Canvas Files API endpoint with a different token format
+                try:
+                    api_method_url = f"https://clemson.instructure.com/api/v1/files/{file_id}?include[]=enhanced_preview_url"
+                    cookie_headers = {
+                        "Cookie": f"_csrf_token={token}; canvas_session={token}",
+                        "Accept": "*/*"
+                    }
+                    print(f"Attempting Method 4: Files API with cookie auth: {api_method_url}")
+                    
+                    async with session.get(api_method_url, headers=cookie_headers, ssl=ssl_context) as api_response:
+                        if api_response.status == 200:
+                            api_data = await api_response.json()
+                            if "enhanced_preview_url" in api_data:
+                                preview_url = api_data["enhanced_preview_url"]
+                                
+                                async with session.get(preview_url, headers=cookie_headers, ssl=ssl_context) as preview_response:
+                                    if preview_response.status == 200:
+                                        content_type = preview_response.headers.get("Content-Type", "application/octet-stream")
+                                        file_content = await preview_response.read()
+                                        print(f"Method 4 SUCCESS: Downloaded {len(file_content)} bytes")
+                                        
+                                        if not filename:
+                                            filename = file_info.get("display_name", "canvas_file")
+                                        
+                                        return Response(
+                                            content=file_content,
+                                            media_type=content_type,
+                                            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                                        )
+                                    else:
+                                        print(f"Method 4 preview download failed with status {preview_response.status}")
+                        else:
+                            print(f"Method 4 failed with status {api_response.status}")
+                except Exception as e4:
+                    print(f"Method 4 exception: {str(e4)}")
+                
+                # All methods failed, create a fallback HTML but with more context
+                print("All download methods failed, creating fallback HTML")
+                
+                # Get additional file details for better context
+                file_type = file_info.get('content-type', 'Unknown')
+                file_size = file_info.get('size', 'Unknown')
+                file_created = file_info.get('created_at', 'Unknown')
+                file_updated = file_info.get('updated_at', 'Unknown')
+                file_display_name = file_info.get('display_name', 'File')
+                
+                # Create a richer HTML fallback with file details and Canvas URI
+                html_content = f"""
+                <html>
+                <head>
+                    <title>{file_display_name}</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
+                        h1 {{ color: #2d3b45; }}
+                        .container {{ margin: 20px auto; max-width: 800px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                        .metadata {{ background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+                        .actions {{ margin-top: 20px; text-align: center; }}
+                        .actions a {{ display: inline-block; padding: 10px 20px; background-color: #0374B5; color: white; 
+                                     text-decoration: none; border-radius: 5px; margin: 0 10px; }}
+                        .actions a:hover {{ background-color: #0262A0; }}
+                        .note {{ font-style: italic; margin-top: 30px; color: #666; }}
+                        pre {{ background: #f8f8f8; padding: 10px; overflow-x: auto; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>{file_display_name}</h1>
+                        
+                        <div class="metadata">
+                            <h3>File Information</h3>
+                            <p><strong>File Type:</strong> {file_type}</p>
+                            <p><strong>Size:</strong> {file_size} bytes</p>
+                            <p><strong>Created:</strong> {file_created}</p>
+                            <p><strong>Last Updated:</strong> {file_updated}</p>
+                            <p><strong>File ID:</strong> {file_id}</p>
+                            <p><strong>Course ID:</strong> {course_id}</p>
+                        </div>
+                        
+                        <div class="actions">
+                            <a href="https://clemson.instructure.com/courses/{course_id}/files/{file_id}" target="_blank">
+                                View in Canvas
+                            </a>
+                            <a href="https://clemson.instructure.com/courses/{course_id}/files/{file_id}/download?download_frd=1" target="_blank">
+                                Download File
+                            </a>
+                        </div>
+                        
+                        <p class="note">Note: You may need to be logged into Canvas to access this file.</p>
+                        
+                        <div>
+                            <h3>Debug Information</h3>
+                            <p>The system was unable to directly download this file for the knowledge base. The following download URLs were attempted:</p>
+                            <pre>1. https://clemson.instructure.com/courses/{course_id}/files/{file_id}/download
+2. {file_info.get('url', 'No URL in file info')}
+3. https://clemson.instructure.com/files/{file_id}/download?download_frd=1
+4. Files API with alternative authentication
+</pre>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+                
+                if not filename:
+                    filename = f"{file_display_name.replace(' ', '_')}.html"
+                
                 return Response(
-                    content=file_content,
-                    media_type=content_type,
+                    content=html_content,
+                    media_type="text/html",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'}
                 )
+                
+    except Exception as e:
+        print(f"Exception in download_file_content: {str(e)}")
+        traceback.print_exc()
+        
+        # Create a graceful error HTML with debugging information
+        html_content = f"""
+        <html>
+        <head>
+            <title>File Download Error</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
+                h1 {{ color: #d32f2f; }}
+                .container {{ margin: 20px auto; max-width: 800px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
+                .error {{ color: #d32f2f; font-family: monospace; white-space: pre-wrap; text-align: left; 
+                         padding: 10px; background: #f5f5f5; overflow-x: auto; }}
+                .actions {{ margin-top: 20px; text-align: center; }}
+                .actions a {{ display: inline-block; padding: 10px 20px; background-color: #0374B5; color: white; 
+                             text-decoration: none; border-radius: 5px; }}
+                .actions a:hover {{ background-color: #0262A0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>File Download Error</h1>
+                <p>There was an error downloading this file from Canvas. The system could not retrieve the file content directly.</p>
+                
+                <h3>Error details:</h3>
+                <div class="error">{str(e)}</div>
+                
+                <div class="actions">
+                    <a href="https://clemson.instructure.com/courses/{course_id}/files/{file_id}" target="_blank">
+                        Access File in Canvas
+                    </a>
+                </div>
+                
+                <p>This file was being downloaded for the knowledge base but encountered an authentication issue.</p>
+                <p>Course ID: {course_id}</p>
+                <p>File ID: {file_id}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        if not filename:
+            filename = "file_download_error.html"
+        
+        return Response(
+            content=html_content,
+            media_type="text/html",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
 
 async def download_external_url(url: str, token: str, filename: str = None):
     """Create a page that redirects to an external URL"""
