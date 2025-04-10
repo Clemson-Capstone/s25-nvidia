@@ -921,32 +921,40 @@ const KnowledgeBase = ({
             ) : (
               <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-2">
-                  {documents.map((filename, index) => (
-                    <div 
-                      key={index} 
-                      className="p-3 border rounded-md bg-white hover:bg-gray-50 flex justify-between items-center"
-                    >
-                      <div>
-                        <p className="font-medium">{filename}</p>
-                        <p className="text-sm text-gray-500">
-                          {filename.split('.').pop().toUpperCase()} File
-                          <span className="ml-2 text-xs text-gray-400">
-                            Collection: {localSelectedCollection}
-                          </span>
-                        </p>
-                      </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteFile(filename)}
-                        disabled={isDeletingFile === filename}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  {documents.map((document, index) => {
+                    // Check if document is an object or string
+                    const filename = typeof document === 'string' 
+                      ? document 
+                      : (document.document_name || 'Unknown file');
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className="p-3 border rounded-md bg-white hover:bg-gray-50 flex justify-between items-center"
                       >
-                        {isDeletingFile === filename ? 'Deleting...' : 'Delete'}
-                      </Button>
-                    </div>
-                  ))}
+                        <div>
+                          <p className="font-medium">{filename}</p>
+                          <p className="text-sm text-gray-500">
+                            {typeof filename === 'string' && filename.includes('.') ? 
+                              filename.split('.').pop().toUpperCase() : 'Unknown'} File
+                            <span className="ml-2 text-xs text-gray-400">
+                              Collection: {localSelectedCollection}
+                            </span>
+                          </p>
+                        </div>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteFile(filename)}
+                          disabled={isDeletingFile === filename}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          {isDeletingFile === filename ? 'Deleting...' : 'Delete'}
+                        </Button>
+                      </div>
+                    );
+                  })}
                 </div>
               </ScrollArea>
             )}
