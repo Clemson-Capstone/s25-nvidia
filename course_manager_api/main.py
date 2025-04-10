@@ -200,8 +200,50 @@ class CanvasClient:
         
         return save_path
 
+def clean_filename(filename):
+    """Clean a filename to fix problematic extensions like .pdf.html"""
+    if not filename:
+        return filename
+        
+    # Check if we have a double extension with .html at the end
+    lower_name = filename.lower()
+    
+    # General patterns for detecting file extensions
+    known_extensions = ['.pdf', '.docx', '.xlsx', '.pptx', '.txt', '.jpg', '.png', 
+                       '.doc', '.xls', '.ppt', '.csv', '.zip', '.mp3', '.mp4', 
+                       '.gif', '.svg', '.json', '.xml', '.md']
+                    
+    # If the filename ends with .html, check if there's another extension before it
+    if lower_name.endswith('.html'):
+        for ext in known_extensions:
+            if ext + '.html' in lower_name:
+                # Replace just the .html at the end of the extension
+                cleaned_name = filename.replace(ext + '.html', ext)
+                print(f"[CLEAN_FILENAME] Cleaned double extension: {filename} -> {cleaned_name}")
+                return cleaned_name
+    
+    # Also handle the case where brackets or special characters got into filenames
+    cleaned = filename
+    # Remove URL encoding of spaces and special characters 
+    if '%20' in cleaned:
+        cleaned = cleaned.replace('%20', ' ')
+    if '%' in cleaned and any(c.isdigit() for c in cleaned):
+        # Try to clean up other URL encoded characters
+        try:
+            from urllib.parse import unquote
+            decoded = unquote(cleaned)
+            if decoded != cleaned:
+                print(f"[CLEAN_FILENAME] URL decoded: {cleaned} -> {decoded}")
+                cleaned = decoded
+        except:
+            pass
+            
+    return cleaned
+            
 async def upload_to_rag(file_path, file_name, collection_name="default"):
     """Upload a file to the RAG server using NVIDIA's new approach for knowledge base management"""
+    # Clean the filename first
+    file_name = clean_filename(file_name)
     print(f"[UPLOAD_TO_RAG] Starting upload for {file_name} from {file_path} to collection: {collection_name}")
     
     try:
@@ -223,11 +265,43 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
             UPLOADS_TO_RAG.labels(status="error_empty_file").inc()
             raise ValueError("File is empty")
             
-        # Determine mime type
+        # We already cleaned the filename at the function start, but let's also check content
+        # Try to determine the content type from file data (magic bytes)
+        content_type_from_bytes = None
+        try:
+            with open(file_path, 'rb') as f:
+                first_bytes = f.read(8)  # Read first few bytes
+                
+                # Check for PDF
+                if first_bytes.startswith(b'%PDF-'):
+                    content_type_from_bytes = 'application/pdf'
+                    print(f"[UPLOAD_TO_RAG] Content identified as PDF based on magic bytes")
+                # Check for HTML
+                elif first_bytes.startswith(b'<!DOCTYPE') or b'<html' in first_bytes:
+                    content_type_from_bytes = 'text/html'
+                    print(f"[UPLOAD_TO_RAG] Content identified as HTML based on content")
+                # Check for XML
+                elif first_bytes.startswith(b'<?xml'):
+                    content_type_from_bytes = 'application/xml'
+                    print(f"[UPLOAD_TO_RAG] Content identified as XML based on content")
+                    
+                # Reset file position
+                f.seek(0)
+        except Exception as e:
+            print(f"[UPLOAD_TO_RAG] Warning: Failed to detect content type from bytes: {str(e)}")
+            
+        # Determine mime type based on the cleaned file name
         mime_type, _ = mimetypes.guess_type(file_name)
-        if not mime_type:
+        
+        # If we detected a content type from bytes, it takes precedence
+        if content_type_from_bytes:
+            mime_type = content_type_from_bytes
+        # Otherwise fallback to extension-based detection
+        elif not mime_type:
             if file_name.endswith('.html'):
                 mime_type = 'text/html'
+            elif file_name.endswith('.pdf'):
+                mime_type = 'application/pdf'
             else:
                 mime_type = 'application/octet-stream'
         
@@ -656,8 +730,9 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     failed_count += 1
                     continue
                 
-                # Determine the appropriate extension
-                file_extension = ".html"  # Default to HTML
+                # Determine the appropriate extension based on content type
+                # For now, don't set a default extension - we'll determine it after looking at the content
+                file_extension = ""  # Default to HTML
                 
                 # Rename temp file with appropriate extension
                 new_temp_file_path = temp_file_path + file_extension
@@ -715,13 +790,73 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     is_html = b'<html' in first_bytes or b'<!DOCTYPE html' in first_bytes
                 
                 # Upload the file to the RAG server with the collection name and appropriate extension
-                if is_html and file_extension != '.html':
-                    # If we got HTML when we expected something else, use HTML extension
-                    filename = f"{item_name}.html"
-                    print(f"[UPLOAD_SELECTED_TO_RAG] Content appears to be HTML, using .html extension")
+                
+                # Clean the item name first
+                item_name = clean_filename(item_name)
+                
+                # Check if the name already has a file extension
+                name_parts = os.path.splitext(item_name)
+                base_name = name_parts[0]
+                name_ext = name_parts[1].lower()
+                
+                # Try to detect content type from file data (magic bytes)
+                content_type = None
+                is_pdf = False
+                is_html = False
+                
+                try:
+                    with open(temp_file_path, 'rb') as f:
+                        first_bytes = f.read(50)  # Read more bytes to be sure
+                        f.seek(0)  # Reset position
+                        
+                        # Check for PDF
+                        if first_bytes.startswith(b'%PDF-'):
+                            content_type = 'application/pdf'
+                            is_pdf = True
+                            print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as PDF based on magic bytes")
+                        # Check for HTML
+                        elif first_bytes.startswith(b'<!DOCTYPE') or b'<html' in first_bytes:
+                            content_type = 'text/html'
+                            is_html = True
+                            print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as HTML based on content")
+                except Exception as e:
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Warning: Failed to detect content type from bytes: {str(e)}")
+                    # Fallback to checking first bytes for HTML tags
+                    with open(temp_file_path, 'rb') as f:
+                        first_bytes = f.read(50)
+                        is_html = b'<html' in first_bytes or b'<!DOCTYPE html' in first_bytes
+                
+                # Determine the correct extension based on content and original name
+                if is_pdf:
+                    # If it's actually a PDF, always use .pdf extension
+                    if name_ext == '.pdf':
+                        # Already has correct extension
+                        filename = item_name
+                    else:
+                        # Add PDF extension
+                        filename = f"{base_name}.pdf"
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as PDF, using filename: {filename}")
+                elif is_html:
+                    # If content is HTML, use .html extension, but avoid double extensions
+                    if name_ext == '.html':
+                        # Already has .html extension
+                        filename = item_name
+                    elif name_ext and '.html' in name_ext:
+                        # Has something like .pdf.html - remove the .html part
+                        clean_name = item_name.lower().replace('.html', '')
+                        filename = f"{clean_name}"
+                    else:
+                        # No html in extension, add .html
+                        filename = f"{item_name}.html"
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Content appears to be HTML, using filename: {filename}")
                 else:
-                    # Use original extension
-                    filename = f"{item_name}{file_extension}"
+                    # Not HTML content, use original name with extension
+                    if name_ext:
+                        # Already has an extension
+                        filename = item_name
+                    else:
+                        # No extension, use the one we determined
+                        filename = f"{item_name}{file_extension}"
                 
                 print(f"[UPLOAD_SELECTED_TO_RAG] Uploading to RAG collection '{collection_name}': {filename}")
                 try:
