@@ -84,6 +84,7 @@ export default function ChatPage() {
   const [documents, setDocuments] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
+  const [enableQueryRewriting, setEnableQueryRewriting] = useState(true); // Default to enabled as recommended
   const [selectedEdgeCase, setSelectedEdgeCase] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -820,13 +821,22 @@ export default function ChatPage() {
     setIsLoading(streamState.isStreaming);
   }, [streamState.isStreaming]);
   
-  // Expose stopStream to allow cancellation from the chat interface
+  // Expose utility functions to the global window object
   useEffect(() => {
     window.stopStream = stopStream;
+    window.resetConversation = () => {
+      setMessages([]);
+      setStreamingMessage('');
+      setError('');
+      resetStream();
+      console.log("Conversation reset");
+    };
+    
     return () => {
       window.stopStream = undefined;
+      window.resetConversation = undefined;
     };
-  }, [stopStream]);
+  }, [stopStream, resetStream]);
   
   const handleSubmit = async (e) => {
     if (e) {
@@ -863,6 +873,8 @@ export default function ChatPage() {
       }));
 
       // Construct the request body according to the notebook example
+      // Send the full conversation history as recommended in the multiturn documentation
+      // The RAG server is designed to handle the full history properly
       const requestBody = {
         messages: messagesFormatted,
         use_knowledge_base: useKnowledgeBase,
@@ -873,7 +885,7 @@ export default function ChatPage() {
         vdb_top_k: 10,
         vdb_endpoint: "http://milvus:19530",
         collection_name: collectionName,
-        enable_query_rewriting: true,
+        enable_query_rewriting: enableQueryRewriting, // Use the user's setting
         enable_reranker: true,
         enable_citations: true,
         model: "meta/llama-3.1-70b-instruct",  // Match the model used in the notebook
@@ -921,11 +933,44 @@ export default function ChatPage() {
       }
       
       console.error('Error:', error);
-      setError(error.message);
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error processing your request. Please try again.' 
-      }]);
+      
+      // Check if this is a GPU/TensorRT/ECC error which can occur with the NVIDIA RAG server
+      if (error.message.includes('ECC error') || 
+          error.message.includes('CUDA') || 
+          error.message.includes('GPU') ||
+          error.message.includes('memory') ||
+          error.message.includes('TensorRT') ||
+          error.message.includes('uncorrectable')) {
+        
+        setError("A GPU or memory error occurred. The NVIDIA RAG server may need to be restarted.");
+        
+        // Provide a more specific message about the hardware issue
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: 'I encountered a technical issue with the GPU server. This sometimes happens with the NVIDIA RAG system. You can try resetting the conversation, or the server may need to be restarted.'
+        }]);
+      } 
+      // Check if it's a model inference issue or query rewriting problem
+      else if (error.message.includes('inference') || 
+               error.message.includes('TensorRT') || 
+               error.message.includes('rewriting')) {
+        
+        setError("A model inference error occurred.");
+        
+        // Provide a troubleshooting message
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: 'There was an error with model inference. Some troubleshooting steps you can try:\n\n1. Reset the conversation\n2. Try a simpler or more direct question\n3. Ask your question as a new conversation'
+        }]);
+      } 
+      else {
+        // Generic error handling
+        setError(error.message);
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: 'Sorry, I encountered an error processing your request. Please try again.'
+        }]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -1009,6 +1054,8 @@ export default function ChatPage() {
         isLoading={isLoading}
         persona={persona}
         setPersona={setPersona}
+        enableQueryRewriting={enableQueryRewriting}
+        setEnableQueryRewriting={setEnableQueryRewriting}
       />
 
       {/* Status Messages */}

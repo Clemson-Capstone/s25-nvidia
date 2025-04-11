@@ -60,8 +60,11 @@ export const useChatStream = () => {
             console.log("Parsed data chunk:", data);
 
             // Check for errors in the response
-            if (data.choices?.[0]?.message?.content?.includes("Error from rag server")) {
-              throw new Error("RAG server error");
+            if (data.choices?.[0]?.message?.content?.includes("Error from rag server") || 
+                data.error || 
+                (data.message && data.message.includes("error"))) {
+              console.error("Error in RAG server response:", data);
+              throw new Error(data.error || data.message || "RAG server error");
             }
 
             // Handle delta content (check different possible formats)

@@ -79,6 +79,7 @@ const ChatInterface = ({
     <Card className="bg-card/80 backdrop-blur-sm border border-border">
       <CardContent className="p-6">
         <ScrollArea className="h-[600px] mb-4 pr-4">
+
           {messages.map((message, index) => (
             <div
               key={index}
@@ -216,6 +217,7 @@ const ChatInterface = ({
           >
             Start Speaking
           </Button>
+          
           {activeCitations && (
             <Button 
               variant="outline" 
@@ -223,6 +225,23 @@ const ChatInterface = ({
               className="border-primary/50 text-primary hover:bg-primary/10"
             >
               Hide Citations
+            </Button>
+          )}
+          
+          {messages.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                if (window.confirm("Are you sure you want to reset the conversation?")) {
+                  // Find the global reset function if available
+                  if (typeof window.resetConversation === 'function') {
+                    window.resetConversation();
+                  }
+                }
+              }}
+              className="border-red-500/50 text-red-500 hover:bg-red-500/10"
+            >
+              Reset Conversation
             </Button>
           )}
         </div>

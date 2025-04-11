@@ -23,7 +23,9 @@ const ChatSettings = ({
   handleSubmit,
   isLoading,
   persona,
-  setPersona
+  setPersona,
+  enableQueryRewriting,
+  setEnableQueryRewriting
 }) => {
   const edgeCases = require('@/app/data/edgecase_dataset.json');
   
@@ -45,6 +47,10 @@ const ChatSettings = ({
               <div className="flex items-center space-x-2">
                 <Switch id="tts-mode" checked={ttsEnabled} onCheckedChange={setTTSEnabled} />
                 <Label htmlFor="tts-mode">Enable Text-to-Speech</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch id="query-rewriting" checked={enableQueryRewriting} onCheckedChange={setEnableQueryRewriting} />
+                <Label htmlFor="query-rewriting">Enable Query Rewriting</Label>
               </div>
               <Button
                 variant="outline"
