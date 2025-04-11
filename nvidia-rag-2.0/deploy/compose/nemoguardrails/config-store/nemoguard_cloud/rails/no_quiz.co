@@ -18,13 +18,12 @@ define bot quiz guidance
 
 
 define bot respond to quiz
-  "Hi kyle your triggering the quiz flow "
+  "Let me explain the concepts without giving away the answer."
 
 define bot format_response($response)
   "Based on the course materials, I can provide the following information: {$response}"
   
 define flow answer course content question
   user ask quiz question
-  bot respond to quiz
-  $qanswer = execute quiz_response("Hello")
+  $qanswer = execute quiz_response
   bot $qanswer

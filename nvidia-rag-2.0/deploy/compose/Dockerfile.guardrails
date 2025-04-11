@@ -1,0 +1,4 @@
+FROM nvcr.io/nvidia/nemo-microservices/guardrails:25.02
+
+# Install the missing dependency
+RUN pip install langchain-nvidia-ai-endpoints
