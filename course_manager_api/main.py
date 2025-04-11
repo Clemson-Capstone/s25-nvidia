@@ -284,6 +284,18 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
                 elif first_bytes.startswith(b'<?xml'):
                     content_type_from_bytes = 'application/xml'
                     print(f"[UPLOAD_TO_RAG] Content identified as XML based on content")
+                # Check for JPEG
+                elif first_bytes.startswith(b'\xff\xd8\xff'):
+                    content_type_from_bytes = 'image/jpeg'
+                    print(f"[UPLOAD_TO_RAG] Content identified as JPEG image based on magic bytes")
+                # Check for PNG
+                elif first_bytes.startswith(b'\x89PNG'):
+                    content_type_from_bytes = 'image/png'
+                    print(f"[UPLOAD_TO_RAG] Content identified as PNG image based on magic bytes")
+                # Check for GIF
+                elif first_bytes.startswith(b'GIF87a') or first_bytes.startswith(b'GIF89a'):
+                    content_type_from_bytes = 'image/gif'
+                    print(f"[UPLOAD_TO_RAG] Content identified as GIF image based on magic bytes")
                     
                 # Reset file position
                 f.seek(0)
@@ -302,8 +314,17 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
                 mime_type = 'text/html'
             elif file_name.endswith('.pdf'):
                 mime_type = 'application/pdf'
+            elif file_name.endswith('.jpeg') or file_name.endswith('.jpg'):
+                mime_type = 'image/jpeg'
+            elif file_name.endswith('.png'):
+                mime_type = 'image/png'
+            elif file_name.endswith('.gif'):
+                mime_type = 'image/gif'
             else:
                 mime_type = 'application/octet-stream'
+        
+        # Determine if this is an image file
+        is_image = mime_type and mime_type.startswith('image/')
         
         print(f"[UPLOAD_TO_RAG] Using mime type: {mime_type}")
         
@@ -315,6 +336,28 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
         form_data.add_field("documents", open(file_path, 'rb'), filename=file_name, content_type=mime_type)
         
         # Add options as JSON data
+        if is_image:
+            # Special handling for image files
+            print(f"[UPLOAD_TO_RAG] Detected image file, using special extraction options")
+            
+            # For image files, we'll create a simple text file that describes the image
+            # This ensures we have something that can be indexed in the vector database
+            text_file_path = f"{file_path}.txt"
+            with open(text_file_path, "w") as f:
+                f.write(f"Image file: {file_name}\n")
+                f.write(f"Type: {mime_type}\n")
+                f.write(f"Description: Canvas image content\n")
+            
+            # Make sure text file can be read
+            if os.path.exists(text_file_path) and os.path.getsize(text_file_path) > 0:
+                # Update file_path and file_name to use the text description
+                temp_file_path = file_path
+                file_path = text_file_path
+                file_name = os.path.basename(file_name).split('.')[0] + ".txt"
+                mime_type = "text/plain"
+                print(f"[UPLOAD_TO_RAG] Created text description for image: {file_path}, new filename: {file_name}")
+        
+        # Standard extraction options
         data = {
             "collection_name": collection_name,
             "extraction_options": {
@@ -324,6 +367,7 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
                 "extract_images": False,
                 "extract_method": "pdfium",
                 "text_depth": "page",
+                "skip_image_extraction": True  # Skip image extraction for files that can't be processed by pdfium
             },
             "split_options": {
                 "chunk_size": 1024,
@@ -344,6 +388,17 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
                     response_text = await response.text()
                     print(f"[UPLOAD_TO_RAG] Upload successful: {response_text}")
                     UPLOADS_TO_RAG.labels(status="success").inc()
+                    
+                    # Clean up the text description file if it was created for an image
+                    if is_image and file_path.endswith('.txt') and os.path.exists(temp_file_path):
+                        try:
+                            # Clean up both the original image and text description
+                            if os.path.exists(temp_file_path):
+                                print(f"[UPLOAD_TO_RAG] Removing temporary image file: {temp_file_path}")
+                                os.remove(temp_file_path)
+                        except Exception as cleanup_error:
+                            print(f"[UPLOAD_TO_RAG] Warning: Failed to clean up temp files: {str(cleanup_error)}")
+                    
                     return {"status": "success", "collection_name": collection_name}
                 else:
                     response_text = await response.text()
@@ -674,7 +729,8 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
         failed_count = 0
         failed_items = []
         
-        # Always use the default collection regardless of course
+        # Always use the default collection
+        # We don't create separate collections per course to avoid complexity
         collection_name = "default"
         
         # Process each selected item
@@ -803,6 +859,8 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                 content_type = None
                 is_pdf = False
                 is_html = False
+                is_image = False
+                image_type = None
                 
                 try:
                     with open(temp_file_path, 'rb') as f:
@@ -819,6 +877,24 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                             content_type = 'text/html'
                             is_html = True
                             print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as HTML based on content")
+                        # Check for JPEG
+                        elif first_bytes.startswith(b'\xff\xd8\xff'):
+                            content_type = 'image/jpeg'
+                            is_image = True
+                            image_type = 'jpeg'
+                            print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as JPEG image based on magic bytes")
+                        # Check for PNG
+                        elif first_bytes.startswith(b'\x89PNG'):
+                            content_type = 'image/png'
+                            is_image = True
+                            image_type = 'png'
+                            print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as PNG image based on magic bytes")
+                        # Check for GIF
+                        elif first_bytes.startswith(b'GIF87a') or first_bytes.startswith(b'GIF89a'):
+                            content_type = 'image/gif'
+                            is_image = True
+                            image_type = 'gif'
+                            print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as GIF image based on magic bytes")
                 except Exception as e:
                     print(f"[UPLOAD_SELECTED_TO_RAG] Warning: Failed to detect content type from bytes: {str(e)}")
                     # Fallback to checking first bytes for HTML tags
@@ -836,6 +912,61 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                         # Add PDF extension
                         filename = f"{base_name}.pdf"
                     print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as PDF, using filename: {filename}")
+                elif is_image:
+                    # For image files, ensure they have the right extension
+                    correct_ext = f".{image_type}"
+                    
+                    if name_ext.lower() == correct_ext:
+                        # Already has the correct extension
+                        filename = item_name
+                    else:
+                        # Add correct image extension
+                        filename = f"{base_name}{correct_ext}"
+                    
+                    print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as {image_type.upper()} image, using filename: {filename}")
+                    
+                    # For image files, create a special extraction options
+                    image_extraction_options = {
+                        "extract_text": False,  # Don't try to extract text from images
+                        "extract_tables": False,
+                        "extract_charts": False,
+                        "extract_images": True,  # Extract the image itself
+                        "extract_method": "auto",
+                        "text_depth": "page",
+                        "skip_image_extraction": False
+                    }
+                    
+                    # Create a text descriptor file for the image that can be ingested
+                    text_file_path = f"{temp_file_path}.txt"
+                    with open(text_file_path, "w") as f:
+                        f.write(f"Image file: {filename}\n")
+                        f.write(f"Type: {image_type.upper()} image\n")
+                        f.write(f"Description: Canvas image content\n")
+                    
+                    # Upload both the image and its text descriptor
+                    try:
+                        # Upload image with special extraction options
+                        await upload_to_rag(temp_file_path, filename, collection_name)
+                        
+                        # Also upload text description to ensure something gets indexed
+                        text_filename = f"{base_name}.txt"
+                        await upload_to_rag(text_file_path, text_filename, collection_name)
+                        
+                        # Skip the regular upload below since we handled it specially
+                        success_count += 1
+                        print(f"[UPLOAD_SELECTED_TO_RAG] Successfully processed image file {i+1}")
+                        
+                        # Clean up both temp files
+                        if os.path.exists(temp_file_path):
+                            os.remove(temp_file_path)
+                        if os.path.exists(text_file_path):
+                            os.remove(text_file_path)
+                        
+                        # Continue to next file, skipping the regular upload
+                        continue
+                    except Exception as img_error:
+                        print(f"[UPLOAD_SELECTED_TO_RAG] ERROR processing image file: {str(img_error)}")
+                        # Continue with regular upload as fallback
                 elif is_html:
                     # If content is HTML, use .html extension, but avoid double extensions
                     if name_ext == '.html':

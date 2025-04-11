@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useChatStream } from '@/lib/hooks/useChatStream';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
@@ -811,6 +812,22 @@ export default function ChatPage() {
     );
   };
 
+  // Add the useChatStream hook to handle streaming responses
+  const { streamState, processStream, startStream, resetStream, stopStream, isStreaming } = useChatStream();
+  
+  // Sync isStreaming state with isLoading
+  useEffect(() => {
+    setIsLoading(streamState.isStreaming);
+  }, [streamState.isStreaming]);
+  
+  // Expose stopStream to allow cancellation from the chat interface
+  useEffect(() => {
+    window.stopStream = stopStream;
+    return () => {
+      window.stopStream = undefined;
+    };
+  }, [stopStream]);
+  
   const handleSubmit = async (e) => {
     if (e) {
       e.preventDefault();
@@ -831,99 +848,78 @@ export default function ChatPage() {
     setSuccessMessage('');
     setStreamingMessage('');
 
-    let accumulatedMessage = '';
-    let latestCitations = [];
+    // Reset stream and get a fresh abort controller
+    resetStream();
+    const controller = startStream();
 
     try {
-      // Determine which collection to use based on selected course
-      let collectionName = "";
-      if (useKnowledgeBase && selectedCourse) {
-        collectionName = `course_${selectedCourse}`;
-      }
+      // Always use the default collection regardless of selected course
+      let collectionName = "default";
 
+      // Format the messages to match exactly what the RAG server expects
+      const messagesFormatted = [...messages, newMessage].map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Construct the request body according to the notebook example
       const requestBody = {
-        messages: [...messages, newMessage],
+        messages: messagesFormatted,
         use_knowledge_base: useKnowledgeBase,
-        persona,
-        temperature: 0.7,
-        top_p: 0.8,
+        temperature: 0.2,  // Lower temperature for more factual responses
+        top_p: 0.7,
         max_tokens: 1024,
-        top_k: 4,
+        reranker_top_k: 2,
+        vdb_top_k: 10,
+        vdb_endpoint: "http://milvus:19530",
         collection_name: collectionName,
-        model: "",
-        enable_citations: true  // Enable citations from the RAG server
+        enable_query_rewriting: true,
+        enable_reranker: true,
+        enable_citations: true,
+        model: "meta/llama-3.1-70b-instruct",  // Match the model used in the notebook
+        reranker_model: "nvidia/llama-3.2-nv-rerankqa-1b-v2",
+        embedding_model: "nvidia/llama-3.2-nv-embedqa-1b-v2",
+        stop: []
       };
       
-      // Use the v1 API endpoint for the generate request from the RAG server
+      console.log("Sending request to RAG server:", requestBody);
+      
       const response = await fetch(`${RAG_SERVER_URL}/v1/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+        signal: controller.signal
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonData = JSON.parse(line.slice(5));
-              
-              if (jsonData.choices?.[0]?.finish_reason === 'stop') {
-                if (accumulatedMessage) {
-                  setMessages(prev => [...prev, {
-                    role: 'assistant',
-                    content: accumulatedMessage,
-                    citations: latestCitations.length > 0 ? latestCitations : undefined
-                  }]);
-                  
-                  if (ttsEnabled) {
-                    // Extract text without citation markers for TTS
-                    const textOnly = accumulatedMessage.replace(/<cite[^>]*>|<\/cite>/g, '');
-                    speakText(textOnly);
-                  }
-                  setStreamingMessage('');
-                }
-                break;
-              }
-
-              // Process message content
-              if (jsonData.choices?.[0]?.delta?.content || jsonData.choices?.[0]?.message?.content) {
-                const content = jsonData.choices[0]?.delta?.content || jsonData.choices[0]?.message?.content;
-                accumulatedMessage += content;
-                setStreamingMessage(accumulatedMessage);
-              }
-
-              // Process citations if available
-              if (jsonData.citations?.results?.length > 0) {
-                latestCitations = jsonData.citations.results.map(source => ({
-                  text: source.content,
-                  source: source.document_name,
-                  document_type: source.document_type || "text",
-                }));
-              }
-            } catch (e) {
-              console.error('Error parsing JSON from chunk:', e);
-              continue;
-            }
+      // Process the streaming response using our hook
+      await processStream(
+        response, 
+        setStreamingMessage,
+        (updatedMessages) => {
+          setMessages(updatedMessages);
+          const lastMessage = updatedMessages[updatedMessages.length - 1];
+          
+          // Handle text-to-speech if enabled
+          if (ttsEnabled && lastMessage && lastMessage.role === 'assistant') {
+            // Extract text without citation markers for TTS
+            const textOnly = lastMessage.content.replace(/<cite[^>]*>|<\/cite>/g, '');
+            speakText(textOnly);
           }
         }
-      }
+      );
 
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Stream was aborted');
+        return;
+      }
+      
       console.error('Error:', error);
       setError(error.message);
       setMessages(prev => [...prev, { 

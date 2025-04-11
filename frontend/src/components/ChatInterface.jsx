@@ -33,6 +33,9 @@ const ChatInterface = ({
     } else {
       setActiveCitations(citations);
     }
+    
+    // Log citation information for debugging
+    console.log("Citations toggled:", citations);
   };
   
   // Render citations panel
@@ -132,6 +135,10 @@ const ChatInterface = ({
           {streamingMessage && (
             <div className="mb-4 text-left">
               <div className="inline-block max-w-[80%] p-4 rounded-lg bg-card text-card-foreground border border-border shadow-sm">
+                <div className="flex items-center mb-2">
+                  <div className="h-2 w-2 bg-primary rounded-full mr-2 animate-pulse"></div>
+                  <span className="text-xs text-muted-foreground">AI is responding...</span>
+                </div>
                 <ReactMarkdown
                   components={{
                     p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
@@ -174,13 +181,23 @@ const ChatInterface = ({
             className="flex-grow bg-card/50 text-card-foreground"
             disabled={isLoading}
           />
-          <Button 
-            type="submit" 
-            className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
-            disabled={isLoading || !inputMessage.trim()}
-          >
-            {isLoading ? 'Sending...' : 'Send'}
-          </Button>
+          {isLoading ? (
+            <Button 
+              type="button" 
+              onClick={() => window.stopStream && window.stopStream()}
+              className="bg-red-600 hover:bg-red-700 text-white shadow-sm"
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button 
+              type="submit" 
+              className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
+              disabled={!inputMessage.trim()}
+            >
+              Send
+            </Button>
+          )}
         </form>
         <div className="mt-2 flex gap-2">
           <Button 
