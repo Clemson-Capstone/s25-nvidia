@@ -84,10 +84,18 @@ export default function ChatPage() {
   const [documents, setDocuments] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
-  const [enableQueryRewriting, setEnableQueryRewriting] = useState(true); // Default to enabled as recommended
+  // Query rewriting disabled by default as it may cause issues with CPU-based inference
+  const [enableQueryRewriting, setEnableQueryRewriting] = useState(false);
+  const [enableGuardrails, setEnableGuardrails] = useState(true);
   const [selectedEdgeCase, setSelectedEdgeCase] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Model parameters
+  const [temperature, setTemperature] = useState(0.2);
+  const [topP, setTopP] = useState(0.7);
+  const [rerankerTopK, setRerankerTopK] = useState(2);
+  const [vdbTopK, setVdbTopK] = useState(10);
   
   // Canvas-related state variables
   const [canvasToken, setCanvasToken] = useState('');
@@ -873,26 +881,40 @@ export default function ChatPage() {
       }));
 
       // Construct the request body according to the notebook example
-      // Send the full conversation history as recommended in the multiturn documentation
-      // The RAG server is designed to handle the full history properly
+      // Check if we have more than one message (multiturn)
+      const isMultiturn = messagesFormatted.length > 1;
+      
+      // Send the request with appropriate settings for multiturn conversations
       const requestBody = {
         messages: messagesFormatted,
         use_knowledge_base: useKnowledgeBase,
-        temperature: 0.2,  // Lower temperature for more factual responses
-        top_p: 0.7,
-        max_tokens: 1024,
-        reranker_top_k: 2,
-        vdb_top_k: 10,
+        temperature: temperature,
+        top_p: topP,
+        max_tokens: 1024, // Fixed value
+        reranker_top_k: rerankerTopK,
+        vdb_top_k: vdbTopK,
         vdb_endpoint: "http://milvus:19530",
         collection_name: collectionName,
-        enable_query_rewriting: enableQueryRewriting, // Use the user's setting
+        enable_query_rewriting: false, // Always disable query rewriting to prevent CPU inference issues
         enable_reranker: true,
         enable_citations: true,
-        model: "meta/llama-3.1-70b-instruct",  // Match the model used in the notebook
-        reranker_model: "nvidia/llama-3.2-nv-rerankqa-1b-v2",
-        embedding_model: "nvidia/llama-3.2-nv-embedqa-1b-v2",
+        // Never override user settings for guardrails
+        enable_guardrails: enableGuardrails,
+        model: "meta/llama-3.1-70b-instruct", // Fixed model
+        reranker_model: "nvidia/llama-3.2-nv-rerankqa-1b-v2", // Fixed reranker model
+        embedding_model: "nvidia/llama-3.2-nv-embedqa-1b-v2", // Fixed embedding model
         stop: []
       };
+      
+      console.log("Sending request to RAG server with parameters:", {
+        temperature,
+        topP,
+        rerankerTopK,
+        vdbTopK,
+        enable_query_rewriting: false, // Always disabled
+        enable_guardrails: enableGuardrails, // Use exactly what the user has set
+        isMultiturn
+      });
       
       console.log("Sending request to RAG server:", requestBody);
       
@@ -934,26 +956,24 @@ export default function ChatPage() {
       
       console.error('Error:', error);
       
-      // Check if this is a GPU/TensorRT/ECC error which can occur with the NVIDIA RAG server
-      if (error.message.includes('ECC error') || 
+      // Check if this is a server error
+      if (error.message.includes('Error') || 
           error.message.includes('CUDA') || 
-          error.message.includes('GPU') ||
           error.message.includes('memory') ||
-          error.message.includes('TensorRT') ||
           error.message.includes('uncorrectable')) {
         
-        setError("A GPU or memory error occurred. The NVIDIA RAG server may need to be restarted.");
+        setError("A server error occurred. The RAG server may need to be restarted.");
         
-        // Provide a more specific message about the hardware issue
+        // Provide a generic message about the issue
         setMessages(prev => [...prev, { 
           role: 'assistant', 
-          content: 'I encountered a technical issue with the GPU server. This sometimes happens with the NVIDIA RAG system. You can try resetting the conversation, or the server may need to be restarted.'
+          content: 'I encountered a technical issue with the server. You can try resetting the conversation, or the server may need to be restarted.'
         }]);
       } 
-      // Check if it's a model inference issue or query rewriting problem
+      // Check if it's a model inference issue
       else if (error.message.includes('inference') || 
-               error.message.includes('TensorRT') || 
-               error.message.includes('rewriting')) {
+               error.message.includes('500') || 
+               error.message.includes('Internal Server Error')) {
         
         setError("A model inference error occurred.");
         
@@ -1048,14 +1068,19 @@ export default function ChatPage() {
         setTTSEnabled={setTTSEnabled}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
-        selectedEdgeCase={selectedEdgeCase}
-        handleEdgeCaseSelect={handleEdgeCaseSelect}
-        handleSubmit={handleSubmit}
-        isLoading={isLoading}
         persona={persona}
         setPersona={setPersona}
-        enableQueryRewriting={enableQueryRewriting}
-        setEnableQueryRewriting={setEnableQueryRewriting}
+
+        enableGuardrails={enableGuardrails}
+        setEnableGuardrails={setEnableGuardrails}
+        temperature={temperature}
+        setTemperature={setTemperature}
+        topP={topP}
+        setTopP={setTopP}
+        rerankerTopK={rerankerTopK}
+        setRerankerTopK={setRerankerTopK}
+        vdbTopK={vdbTopK}
+        setVdbTopK={setVdbTopK}
       />
 
       {/* Status Messages */}
