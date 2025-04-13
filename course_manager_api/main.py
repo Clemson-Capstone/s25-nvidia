@@ -18,6 +18,17 @@ import io
 import mimetypes
 import datetime
 
+# Set environment variables for image captioning
+os.environ["APP_NVINGEST_EXTRACTIMAGES"] = "True"
+os.environ["VLM_CAPTION_ENDPOINT"] = "https://ai.api.nvidia.com/v1/gr/meta/llama-3.2-11b-vision-instruct/chat/completions"
+os.environ["VLM_CAPTION_MODEL_NAME"] = "meta/llama-3.2-11b-vision-instruct"
+os.environ["VLM_USE_LOCAL_SERVICE"] = "False"  # Ensure we're not trying to use a local service
+
+# Log the image captioning configuration
+print(f"[IMAGE_CAPTIONING] Enabled with endpoint: {os.environ.get('VLM_CAPTION_ENDPOINT')}")
+print(f"[IMAGE_CAPTIONING] Model: {os.environ.get('VLM_CAPTION_MODEL_NAME')}")
+print(f"[IMAGE_CAPTIONING] Using local service: {os.environ.get('VLM_USE_LOCAL_SERVICE')}")
+
 # Import the module downloader functionality
 from canvas_downloader import (
     download_file_async, 
@@ -337,37 +348,25 @@ async def upload_to_rag(file_path, file_name, collection_name="default"):
         
         # Add options as JSON data
         if is_image:
-            # Special handling for image files
-            print(f"[UPLOAD_TO_RAG] Detected image file, using special extraction options")
+            # Special handling for image files with image captioning enabled
+            print(f"[UPLOAD_TO_RAG] Detected image file, enabling image captioning")
             
-            # For image files, we'll create a simple text file that describes the image
-            # This ensures we have something that can be indexed in the vector database
-            text_file_path = f"{file_path}.txt"
-            with open(text_file_path, "w") as f:
-                f.write(f"Image file: {file_name}\n")
-                f.write(f"Type: {mime_type}\n")
-                f.write(f"Description: Canvas image content\n")
-            
-            # Make sure text file can be read
-            if os.path.exists(text_file_path) and os.path.getsize(text_file_path) > 0:
-                # Update file_path and file_name to use the text description
-                temp_file_path = file_path
-                file_path = text_file_path
-                file_name = os.path.basename(file_name).split('.')[0] + ".txt"
-                mime_type = "text/plain"
-                print(f"[UPLOAD_TO_RAG] Created text description for image: {file_path}, new filename: {file_name}")
+            # We will now pass the image directly to the RAG server with image captioning enabled
+            # This enables the VLM model to extract meaningful content from the images
+            # No need to create a text description file as the image captioning service will handle it
         
-        # Standard extraction options
+        # Standard extraction options with image captioning enabled
         data = {
             "collection_name": collection_name,
             "extraction_options": {
                 "extract_text": True,
                 "extract_tables": True,
                 "extract_charts": True,
-                "extract_images": False,
+                "extract_images": True,  # Enable image extraction
+                "caption_images": True,  # Enable image captioning for embedded images
                 "extract_method": "pdfium",
                 "text_depth": "page",
-                "skip_image_extraction": True  # Skip image extraction for files that can't be processed by pdfium
+                "skip_image_extraction": False  # Don't skip image extraction
             },
             "split_options": {
                 "chunk_size": 1024,
@@ -925,42 +924,20 @@ async def upload_selected_to_rag(request: UploadSelectedToRAGRequest):
                     
                     print(f"[UPLOAD_SELECTED_TO_RAG] Content identified as {image_type.upper()} image, using filename: {filename}")
                     
-                    # For image files, create a special extraction options
-                    image_extraction_options = {
-                        "extract_text": False,  # Don't try to extract text from images
-                        "extract_tables": False,
-                        "extract_charts": False,
-                        "extract_images": True,  # Extract the image itself
-                        "extract_method": "auto",
-                        "text_depth": "page",
-                        "skip_image_extraction": False
-                    }
-                    
-                    # Create a text descriptor file for the image that can be ingested
-                    text_file_path = f"{temp_file_path}.txt"
-                    with open(text_file_path, "w") as f:
-                        f.write(f"Image file: {filename}\n")
-                        f.write(f"Type: {image_type.upper()} image\n")
-                        f.write(f"Description: Canvas image content\n")
-                    
-                    # Upload both the image and its text descriptor
+                    # For image files, use the image captioning capabilities
+                    # No need for text descriptor files as the VLM model will generate captions
                     try:
-                        # Upload image with special extraction options
+                        # Upload image with image captioning enabled
+                        print(f"[UPLOAD_SELECTED_TO_RAG] Uploading image with captioning enabled: {filename}")
                         await upload_to_rag(temp_file_path, filename, collection_name)
-                        
-                        # Also upload text description to ensure something gets indexed
-                        text_filename = f"{base_name}.txt"
-                        await upload_to_rag(text_file_path, text_filename, collection_name)
                         
                         # Skip the regular upload below since we handled it specially
                         success_count += 1
                         print(f"[UPLOAD_SELECTED_TO_RAG] Successfully processed image file {i+1}")
                         
-                        # Clean up both temp files
+                        # Clean up temp file
                         if os.path.exists(temp_file_path):
                             os.remove(temp_file_path)
-                        if os.path.exists(text_file_path):
-                            os.remove(text_file_path)
                         
                         # Continue to next file, skipping the regular upload
                         continue
@@ -1287,5 +1264,14 @@ async def index():
     return {"message": "Course Data Manager API is running"}
 
 if __name__ == "__main__":
+    # Print configuration information
+    print("=" * 80)
+    print("Course Manager API - Starting Server")
+    print(f"- RAG Server URL: {RAG_SERVER_URL}")
+    print(f"- Ingestion Server URL: {INGESTION_SERVER_URL}")
+    print(f"- Image Captioning: Enabled")
+    print(f"- VLM Caption Endpoint: {os.environ.get('VLM_CAPTION_ENDPOINT')}")
+    print("=" * 80)
+    
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8012, reload=True)
