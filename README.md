@@ -83,6 +83,8 @@ Use these procedures to deploy with Docker Compose for a single node deployment.
 
 This is the recommended deployment option using your NVIDIA API key to access cloud-hosted models.
 
+Cd into the correct directory nvidia-rag-2.0
+
 1. Verify that you meet the prerequisites.
 
 2. Set the endpoint URLs for the NIMs:
