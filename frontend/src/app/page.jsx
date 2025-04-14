@@ -1086,8 +1086,8 @@ export default function ChatPage() {
       {/* Status Messages */}
       {successMessage && (
         <div className="max-w-4xl mx-auto mb-6">
-          <Alert className="bg-card text-card-foreground border-green-200 max-w-4xl mx-auto">
-            <AlertDescription className="text-green-200">{successMessage}</AlertDescription>
+          <Alert className="bg-card text-card-foreground border-green-700 dark:border-green-200 max-w-4xl mx-auto">
+            <AlertDescription className="text-green-700 dark:text-green-200">{successMessage}</AlertDescription>
           </Alert>
         </div>
       )}
