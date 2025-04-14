@@ -122,8 +122,9 @@ This is the recommended deployment option using your NVIDIA API key to access cl
    docker compose -f deploy/compose/docker-compose-ingestor-server.yaml up -d --build
    ```
 
-5. # Set Configuration for Cloud Deployment
+5. Set up the guardrails container to use guardrails
 
+Set the environment variables for the guardrails
 ```bash
 export DEFAULT_CONFIG=nemoguard_cloud
 export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
