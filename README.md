@@ -143,11 +143,13 @@ For cloud deployment using NVIDIA-hosted models instead of the default self-host
 export DEFAULT_CONFIG=nemoguard_cloud
 export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
 
+
+Run the make command to start the guardrails service
 ```bash
 make guardrails-build
 ```
 
-If the container doesn't start automatically, manually restart it a few times. Alternatively, you can install the required packages locally & then restart on docker desktop:
+If the container doesn't start automatically or starts and then fails, manually restart it a few times. Alternatively, you can install the required packages locally & then restart on docker desktop:
 
 ```bash
 pip install langchain-nvidia-ai-endpoints
