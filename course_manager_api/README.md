@@ -243,8 +243,7 @@ response = requests.post(
 
 ## Maintainers
 
-This module is part of the S25-NVIDIA project.
+This module is part of the S25-NVIDIA Clemson Capstone project.
 
 ## License
-
 Refer to the main project repository for license information.
