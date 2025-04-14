@@ -218,7 +218,7 @@ const KnowledgeBase = ({
                     file.status === 'complete' ? 'bg-green-100 text-green-800' :
                     file.status === 'error' ? 'bg-red-100 text-red-800' :
                     file.status === 'uploading' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
+                    'bg-card text-card-foreground'
                   }
                 >
                   {file.status === 'complete' ? 'Complete' :
