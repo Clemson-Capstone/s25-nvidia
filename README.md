@@ -136,6 +136,12 @@ This is the recommended deployment option using your NVIDIA API key to access cl
 
 Make sure to set up the guardrails microservice:
 
+For cloud deployment using NVIDIA-hosted models instead of the default self-hosted deployment:
+
+# Set configuration for cloud deployment
+export DEFAULT_CONFIG=nemoguard_cloud
+export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
+
 ```bash
 make guardrails-build
 ```
