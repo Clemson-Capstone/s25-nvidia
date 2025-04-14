@@ -143,28 +143,7 @@ Alternatively, install the required packages locally and restart on Docker Deskt
 pip install langchain-nvidia-ai-endpoints
 pip install langchain-unstructured
 ```
-6. Start the Nemoguard Rails container from the repo root:
 
-Make sure to set up the guardrails microservice:
-
-For cloud deployment using NVIDIA-hosted models instead of the default self-hosted deployment:
-
-```bash
-export DEFAULT_CONFIG=nemoguard_cloud
-export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
-```
-
-Run the make command to start the guardrails service
-```bash
-make guardrails-build
-```
-
-If the container doesn't start automatically or starts and then fails, manually restart it a few times. Alternatively, you can install the required packages locally & then restart on docker desktop:
-
-```bash
-pip install langchain-nvidia-ai-endpoints
-pip install langchain-unstructured
-```
 6. Confirm all containers are running:
 
    ```bash
