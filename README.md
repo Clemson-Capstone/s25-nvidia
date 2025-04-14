@@ -9,7 +9,7 @@ This project is licensed under the [Apache License 2.0](./LICENSE).
 
 ### Upstream NVIDIA Dependencies
 
-This project builds upon and integrates components from the [NVIDIA RAG Blueprint v1.0.0](https://github.com/NVIDIA-AI-Blueprints/rag), which is licensed under the Apache License 2.0. Portions of the original RAG blueprint are located under the `foundational-rag/` directory.
+This project builds upon and integrates components from the [NVIDIA RAG Blueprint v2.0.0](https://github.com/NVIDIA-AI-Blueprints/rag), which is licensed under the Apache License 2.0. Portions of the original RAG blueprint are located under the `foundational-rag/` directory.
 
 Additionally, this project uses the [`nemoguardrails`](https://github.com/NVIDIA/NeMo-Guardrails) Python package (v0.11.0), also licensed under Apache License 2.0, to provide guardrail functionality for chatbot safety and control.
 
