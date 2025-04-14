@@ -148,11 +148,10 @@ Make sure to set up the guardrails microservice:
 
 For cloud deployment using NVIDIA-hosted models instead of the default self-hosted deployment:
 
-# Set configuration for cloud deployment
 ```bash
 export DEFAULT_CONFIG=nemoguard_cloud
 export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
-
+```
 
 Run the make command to start the guardrails service
 ```bash
