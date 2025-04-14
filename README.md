@@ -122,16 +122,26 @@ This is the recommended deployment option using your NVIDIA API key to access cl
    docker compose -f deploy/compose/docker-compose-ingestor-server.yaml up -d --build
    ```
 
-5. Start the RAG containers from the repo root:
+5. # Set Configuration for Cloud Deployment
 
-   ```bash
-   docker compose -f deploy/compose/docker-compose-rag-server.yaml up -d
-   ```
+```bash
+export DEFAULT_CONFIG=nemoguard_cloud
+export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
+```
 
-   **Tip**: Add `--build` if you've made code changes:
-   ```bash
-   docker compose -f deploy/compose/docker-compose-rag-server.yaml up -d --build
-   ```
+Run the `make` command to start the Guardrails service:
+
+```bash
+make guardrails-build
+```
+
+If the container doesn't start automatically or starts and then fails, manually restart it a few times.  
+Alternatively, install the required packages locally and restart on Docker Desktop:
+
+```bash
+pip install langchain-nvidia-ai-endpoints
+pip install langchain-unstructured
+```
 6. Start the Nemoguard Rails container from the repo root:
 
 Make sure to set up the guardrails microservice:
