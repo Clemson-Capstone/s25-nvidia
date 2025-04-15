@@ -675,7 +675,7 @@ export default function ChatPage() {
     if (processingFiles.length === 0) return null;
     
     return (
-      <div className="mt-4 mb-4 space-y-4 p-4 border rounded-md bg-card text-card-foreground">
+      <div className="mt-4 mb-4 space-y-4 p-4 border rounded-md bg-card text-card-foreground max-w-4xl mx-auto">
         <h3 className="text-md font-medium">Processing Files</h3>
         {processingFiles.map((file, index) => (
           <div key={index} className="space-y-1">
@@ -1086,8 +1086,8 @@ export default function ChatPage() {
       {/* Status Messages */}
       {successMessage && (
         <div className="max-w-4xl mx-auto mb-6">
-          <Alert className="bg-green-50 border-green-200">
-            <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
+          <Alert className="bg-card text-card-foreground border-green-700 dark:border-green-200 max-w-4xl mx-auto">
+            <AlertDescription className="text-green-700 dark:text-green-200">{successMessage}</AlertDescription>
           </Alert>
         </div>
       )}
@@ -1095,7 +1095,7 @@ export default function ChatPage() {
       {/* Error Alert */}
       {error && (
         <div className="max-w-4xl mx-auto mb-6">
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="max-w-4xl mx-auto">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         </div>
@@ -1104,7 +1104,7 @@ export default function ChatPage() {
       {/* Loading Indicators */}
       {(isFetchingCourses || isDownloading || isLoadingContent || isProcessing) && !error && !successMessage && (
         <div className="max-w-4xl mx-auto mb-6">
-          <Alert>
+          <Alert className="max-w-4xl mx-auto">
             <AlertDescription>
               {isFetchingCourses ? 'Fetching courses...' : 
                isDownloading ? 'Downloading course...' : 
@@ -1252,17 +1252,8 @@ export default function ChatPage() {
               documents={documents}
               fetchDocuments={fetchDocuments}
               fetchCollections={fetchCollections}
-              collections={collections}
-              selectedCollection={selectedCollection}
-              setSelectedCollection={fetchCollectionDocuments}
               setError={setError}
               setSuccessMessage={setSuccessMessage}
-              canvasToken={canvasToken}
-              userId={userId}
-              courses={courses}
-              selectedCourse={selectedCourse}
-              setSelectedCourse={setSelectedCourse}
-              downloadedCourses={downloadedCourses}
               formatFileSize={formatFileSize}
             />
           </TabsContent>

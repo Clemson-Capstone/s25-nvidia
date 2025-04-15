@@ -10,6 +10,7 @@ The Course Manager API is a microservice component of the larger S25-NVIDIA proj
 - **Course Management**: Download and organize course materials by user and course
 - **Document Management**: Retrieve and process various document types (assignments, quizzes, pages, discussions)
 - **RAG Integration**: Upload course materials to a knowledge base for AI processing
+- **Image Captioning**: Intelligent image captioning using NVIDIA's Vision Language Model for better search and retrieval of image content
 - **Metrics & Monitoring**: Prometheus instrumentation for comprehensive performance monitoring
 - **Container-Ready**: Fully containerized for easy deployment and scaling
 
@@ -139,6 +140,40 @@ The service connects to the following external components:
 
 - `/app/course_data`: Persistent storage for downloaded course materials
 
+## Image Captioning Feature
+
+The API includes support for intelligent image captioning using NVIDIA's Vision Language Model (VLM). This feature enhances the searchability and retrieval accuracy for image content within course materials.
+
+### How It Works
+
+1. When image files are detected during content uploads, the system passes them directly to the RAG server with image captioning enabled.
+2. The RAG server uses the NVIDIA VLM (meta/llama-3.2-11b-vision-instruct) to analyze the image content and generate descriptive captions.
+3. These captions are indexed alongside the images, allowing for semantic search across visual content.
+
+### Configuration
+
+Image captioning is enabled by default with the following environment variables:
+
+```
+APP_NVINGEST_EXTRACTIMAGES="True"
+VLM_CAPTION_ENDPOINT="https://ai.api.nvidia.com/v1/gr/meta/llama-3.2-11b-vision-instruct/chat/completions"
+```
+
+No additional configuration is required as the API connects to NVIDIA's hosted VLM service.
+
+### Benefits
+
+- **Improved Content Discovery**: Search can find images based on their visual content
+- **Enhanced Understanding**: AI-generated captions capture key information in diagrams, charts, and photos
+- **Better Context**: Images are properly contextualized within the knowledge base
+
+### Supported Image Types
+
+- JPEG (jpg, jpeg)
+- PNG
+- GIF
+- Other common image formats recognized by their MIME types
+
 ## Security Considerations
 
 - API uses token-based authentication from Canvas
@@ -208,8 +243,7 @@ response = requests.post(
 
 ## Maintainers
 
-This module is part of the S25-NVIDIA project.
+This module is part of the S25-NVIDIA Clemson Capstone project.
 
 ## License
-
 Refer to the main project repository for license information.

@@ -1,6 +1,0 @@
-mv ./nvidia-rag/templates/NOTES.txt ./nvidia-rag/templates/NOTES.txt.bak
-echo "Thank you for installing nvidia-rag.
-
-To access the application, use:
-kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-rag-server 8081:8081
-kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-rag-playground 8090:8090" > ./nvidia-rag/templates/NOTES.txt

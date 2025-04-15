@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Frontend
+
+Next.js frontend component for the Virtual Teaching Assistant application.
+
+## Prerequisites
+
+Before running this application, ensure you have:
+
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- Docker (if running with Docker)
+- Access to backend services:
+  - RAG server (default: http://localhost:8081)
+  - Ingestion server (default: http://localhost:8082)
+  - Canvas API proxy server (default: http://localhost:8012)
 
 ## Getting Started
 
-First, run the development server:
+### Running Locally
+
+1. cd into this frontend folder:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm i --legacy-peer-deps
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+
+### Building for Production
+
+To create a production build:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running with Docker
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+This application includes a multi-stage Dockerfile to optimize build and runtime performance.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Build the Docker image:
+   ```bash
+   docker build -t frontend .
+   ```
 
-## Learn More
+2. Run the container:
+   ```bash
+   docker run -p 3000:3000 frontend
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+3. Access the application at [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Backend Dependencies
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The frontend expects the following backend services to be running:
 
-## Deploy on Vercel
+- RAG Server at http://localhost:8081
+- Ingestion Server at http://localhost:8082
+- Canvas API Proxy at http://localhost:8012
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Available Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev`: Run the development server with turbopack
+- `npm run build`: Build the application for production
+- `npm start`: Start the production server
+- `npm run lint`: Run ESLint for code quality
