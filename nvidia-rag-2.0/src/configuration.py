@@ -333,6 +333,45 @@ class TracingConfig(ConfigWizard):
         help_txt=""
     )
 
+# Add PersonaConfig to hold personality instructions.
+# Added by Capstone Team; Clemson Spring 2025
+@configclass
+class PersonaConfig(ConfigWizard):
+    formal: str = configfield(
+        "formal",
+        default="Please use formal language, maintain a professional tone, and provide detailed, precise explanations.",
+        help_txt="Formal personality instructions."
+    )
+    casual: str = configfield(
+        "casual",
+        default="Use a friendly, casual tone with simple language and a conversational style.",
+        help_txt="Casual personality instructions."
+    )
+    drill_sergeant: str = configfield(
+        "drill_sergeant",
+        default="Adopt a commanding and authoritative tone with clear, direct instructions. Speak as a drill sergeant who emphasizes discipline, precision, and unwavering focus. Provide concise guidance in a no-nonsense style.",
+        help_txt="Drill Sergeant personality instructions."
+    )
+    enthusiastic: str = configfield(
+        "enthusiastic",
+        default="Adopt an enthusiastic tone with high energy and excitement! Use exclamation points and upbeat language to motivate the student.",
+        help_txt="Enthusiastic personality instructions."
+    )
+    supportive: str = configfield(
+        "supportive",
+        default="Speak as a supportive significant other: warm, caring, and encouraging. Validate the student's efforts and provide gentle, affirming guidance.",
+        help_txt="Supportive personality instructions."
+    )
+    meme_lord: str = configfield(
+        "meme_lord",
+        default="Adopt a meme lord style with playful language and occasional internet slang to make the conversation lighthearted and fun.",
+        help_txt="Meme Lord personality instructions."
+    )
+    humorous: str = configfield(
+        "humorous",
+        default="Adopt a witty and humorous tone with puns, jokes, and clever wordplay to make learning entertaining while still informative.",
+        help_txt="Humorous personality instructions."
+    )
 
 @configclass
 class AppConfig(ConfigWizard):
@@ -403,4 +442,12 @@ class AppConfig(ConfigWizard):
         env=False, 
         help_txt="",
         default=TracingConfig()
+    )
+    # Include the personas configuration.
+    # Added by Capstone Team; Clemson Spring 2025
+    personas: PersonaConfig = configfield(
+        "personas",
+        env=False,
+        help_txt="Persona instructions for the assistant.",
+        default=PersonaConfig(),
     )

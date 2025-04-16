@@ -251,6 +251,13 @@ class Prompt(BaseModel):
         max_length=2048,
     )
 
+    # sets default persona as formal
+    # added by Capstone Team; Clemson Spring 2025
+    persona: str = Field(
+        default="formal",
+        description="The personality of the assistant. Options: formal, casual, drill_sergeant, enthusiastic, supportive, meme_lord, humorous"
+    )
+    
     # seed: int = Field(42, description="If specified, our system will make a best effort to sample deterministically,
     #       such that repeated requests with the same seed and parameters should return the same result.")
     # bad: List[str] = Field(None, description="A word or list of words not to use. The words are case sensitive.")
@@ -824,6 +831,11 @@ async def generate_answer(request: Request, prompt: Prompt) -> StreamingResponse
             key: value
             for key, value in vars(prompt).items() if key not in ['messages', 'use_knowledge_base', 'collection_name', 'vdb_top_k', 'reranker_top_k']
         }
+
+        # pass the persona from the Prompt object into the chain settings
+        # added by Capstone Team; Clemson Spring 2025
+        kwargs["persona"] = prompt.persona
+        
         # pylint: disable=unreachable
         generator = None
         # call rag_chain if use_knowledge_base is enabled

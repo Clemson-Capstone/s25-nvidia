@@ -903,7 +903,8 @@ export default function ChatPage() {
         model: "meta/llama-3.1-70b-instruct", // Fixed model
         reranker_model: "nvidia/llama-3.2-nv-rerankqa-1b-v2", // Fixed reranker model
         embedding_model: "nvidia/llama-3.2-nv-embedqa-1b-v2", // Fixed embedding model
-        stop: []
+        stop: [],
+        persona: persona,
       };
       
       console.log("Sending request to RAG server with parameters:", {
