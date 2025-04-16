@@ -1,0 +1,11 @@
+FROM nvcr.io/nvidia/nemo-microservices/guardrails:25.02
+
+# Install the missing dependency
+RUN pip install langchain-nvidia-ai-endpoints
+RUN pip install langchain-unstructured
+
+
+# Pre-copy configuration files into container
+RUN mkdir -p /config-store
+COPY ./nemoguardrails/config-store /config-store
+RUN chmod -R 755 /config-store

@@ -1,0 +1,13 @@
+services:
+  course_manager_api:
+    build:
+      context: ../../course_manager_api
+      dockerfile: Dockerfile
+    ports:
+      - "8012:8012"  # API port
+    restart: unless-stopped
+    container_name: course_manager_api
+    volumes:
+      - ../../course_manager_api:/app
+    environment:
+      - PYTHONUNBUFFERED=1

@@ -1,0 +1,22 @@
+# Python Exclusions
+.venv
+**__pycache__**
+
+# Helm Exclusions
+**/helm-charts/*.tgz
+
+# Docker Compose exclusions
+deploy/compose/volumes
+uploaded_files/
+
+# Visual Studio Code
+.vscode
+
+# Node modules
+**/node_modules
+
+# File from docs builds
+docs/_*
+
+# Notebook checkpoints
+notebooks/.ipynb_checkpoints

@@ -1,0 +1,31 @@
+define user ask debug code
+  "Why is my code segfaulting?"
+  "Can you help me find the bug in my code?"
+  "I'm getting a segmentation fault; what's wrong?"
+  "What’s causing this error in my code?"
+  "Can you debug this with me? I can't figure out the issue."
+  "Why isn't my code working as expected?"
+  "I keep getting this runtime error; can you help?"
+  "What’s wrong with my logic here?"
+  "I’m stuck debugging this; any suggestions?"
+  "Where might the issue be in my code?"
+  "I’m getting a compiler error—what does this mean?"
+  "Can you tell me why my function isn’t returning the right value?"
+  "I don’t understand why this line is throwing an exception."
+  "How do I fix this undefined behavior in my program?"
+  "I think my loop is infinite, but I don’t know why."
+  "Why isn’t this variable updating the way I expect?"
+  "My code isn’t printing the right output; what’s wrong?"
+  "I can’t figure out why this algorithm isn’t working."
+  "Can you check why this part of my program is crashing?"
+  "What’s wrong with my pointer logic here?"
+  "Why is this array going out of bounds?"
+  "My program is freezing—what should I check?"
+  "How do I debug this memory leak?"
+  "Can you help me figure out why this API call fails?"
+  "What's wrong with my code?"
+
+define flow coding question 
+  user ask debug code 
+  $answer = execute code_debug()
+  bot $answer
