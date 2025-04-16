@@ -16,7 +16,6 @@
 import logging
 import os
 import requests
-
 from traceback import print_exc
 from typing import Any, Iterable
 from typing import Dict
@@ -157,6 +156,17 @@ class UnstructuredRAG(BaseExample):
 
             system_prompt += prompts.get("chat_template", "")
 
+            # Inject persona instructions if provided
+            # Added by Capstone Team; Clemson Spring 2025
+            persona = kwargs.get("persona", None)
+            if persona:
+                config = get_config()
+                # Assume persona instructions are available as an attribute of config.personas:
+                personality_instructions = getattr(config.personas, persona, "")
+                if personality_instructions:
+                    logger.info("Applying persona '%s': %s", persona, personality_instructions)
+                    system_prompt += " " + personality_instructions
+
             for message in chat_history:
                 if message.role ==  "system":
                     system_prompt = system_prompt + " " + message.content
@@ -234,6 +244,16 @@ class UnstructuredRAG(BaseExample):
             system_prompt = ""
             conversation_history = []
             system_prompt += prompts.get("rag_template", "")
+
+            # Append persona if provided
+            # Added by Capstone Team; Clemson Spring 2025
+            persona = kwargs.get("persona", None)
+            if persona:
+                config = get_config()
+                personality_instructions = getattr(config.personas, persona, "")
+                if personality_instructions:
+                    logger.info("Applying persona '%s': %s", persona, personality_instructions)
+                    system_prompt += " " + personality_instructions
 
             for message in chat_history:
                 if message.role ==  "system":
@@ -353,6 +373,16 @@ class UnstructuredRAG(BaseExample):
             conversation_history = []
             system_prompt += prompts.get("rag_template", "")
 
+            # Append persona instructions if provided
+            # Added by Capstone Team; Clemson Spring 2025
+            persona = kwargs.get("persona", None)
+            if persona:
+                config = get_config()
+                personality_instructions = getattr(config.personas, persona, "")
+                if personality_instructions:
+                    logger.info("Applying persona '%s': %s", persona, personality_instructions)
+                    system_prompt += " " + personality_instructions
+
             for message in chat_history:
                 if message.role ==  "system":
                     system_prompt = system_prompt + " " + message.content
@@ -447,7 +477,7 @@ class UnstructuredRAG(BaseExample):
                     logger.warning("Could not generate sufficiently grounded response after %d total reflection attempts",
                                     reflection_counter.current_count)
                 return iter([final_response]), context_to_show
-            else:
+            else:              
                 relevant_chunks_str = "\n\n".join([doc.page_content for doc in context_to_show])
                 injected_string = f"question: {query}\nrelevant_chunks: {relevant_chunks_str}"
                
