@@ -19,39 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from 'next/image'
 
 import CanvasIntegration from '@/components/CanvasIntegration';
 import ChatSettings from '@/components/ChatSettings';
 import ChatInterface from '@/components/ChatInterface';
 import KnowledgeBase from '@/components/KnowledgeBase';
 
-// function for text-to-speech
-function speakText(text) {
-  if ('speechSynthesis' in window) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    const voices = window.speechSynthesis.getVoices();
-    // Try to find a female voice. Note that not all browsers provide gender info.
-    const femaleVoice = voices.find(voice =>
-      voice.name.toLowerCase().includes('samantha') ||
-      voice.name.toLowerCase().includes('zira') ||
-      (voice.lang === 'en-US' && voice.name.toLowerCase().includes('female'))
-    );
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
-    } else {
-      console.warn('No female voice found; using default voice.');
-    }
-
-    // Adjust additional parameters as needed ( 1 being default ):
-    utterance.pitch = 1;
-    utterance.rate = 1.4;
-    utterance.volume = 1;
-    window.speechSynthesis.speak(utterance);
-  } else {
-    console.error('Speech synthesis not supported in this browser.');
-  }
-}
+// TTS functionality removed as it's not working reliably across browsers
 
 // function for speech-to-text
 function startSpeechRecognition(setInputMessage) {
@@ -63,6 +38,7 @@ function startSpeechRecognition(setInputMessage) {
     console.error("Speech recognition is not supported in this browser.");
     return;
   }
+  
   const recognition = new SpeechRecognition();
   recognition.lang = "en-US";
   recognition.interimResults = false;
@@ -71,16 +47,33 @@ function startSpeechRecognition(setInputMessage) {
   recognition.onresult = (event) => {
     const speechResult = event.results[0][0].transcript;
     setInputMessage(speechResult);
+    console.log("Speech recognized:", speechResult);
   };
+  
   recognition.onerror = (event) => {
     console.error("Speech recognition error:", event.error);
+    // Clear the "Listening..." text if there's an error
+    setInputMessage("");
   };
+  
+  recognition.onend = () => {
+    console.log("Speech recognition ended");
+  };
+  
   recognition.start();
+  console.log("Speech recognition started");
+}
+
+// Expose startSpeechRecognition globally
+if (typeof window !== 'undefined') {
+  window.startSpeechRecognition = startSpeechRecognition;
 }
 
 export default function ChatPage() {
   // State variables
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "Hello! I am Dori! A virtual assistant here to help you learn content. How can I assist you today?" }
+  ]);
   const [documents, setDocuments] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
@@ -90,6 +83,7 @@ export default function ChatPage() {
   const [selectedEdgeCase, setSelectedEdgeCase] = useState(null);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [ttsEnabled, setTTSEnabled] = useState(true); // Ensure TTS is enabled by default
   
   // Model parameters
   const [temperature, setTemperature] = useState(0.2);
@@ -108,8 +102,8 @@ export default function ChatPage() {
   const [tokenVerified, setTokenVerified] = useState(false);
   const [downloadedCourses, setDownloadedCourses] = useState([]);
   const [persona, setPersona] = useState("formal");
-  const [ttsEnabled, setTTSEnabled] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  // ttsEnabled is already defined in the state variables section above
   
   // Course content state variables
   const [courseContent, setCourseContent] = useState(null);
@@ -202,6 +196,8 @@ export default function ChatPage() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
   }, [isDarkMode]);
+  
+  // TTS initialization removed as the feature is not being used
 
   // Reset selected items when course content changes
   useEffect(() => {
@@ -940,12 +936,8 @@ export default function ChatPage() {
           setMessages(updatedMessages);
           const lastMessage = updatedMessages[updatedMessages.length - 1];
           
-          // Handle text-to-speech if enabled
-          if (ttsEnabled && lastMessage && lastMessage.role === 'assistant') {
-            // Extract text without citation markers for TTS
-            const textOnly = lastMessage.content.replace(/<cite[^>]*>|<\/cite>/g, '');
-            speakText(textOnly);
-          }
+          // TTS functionality disabled since it's not working reliably
+          // Just update the messages without speaking
         }
       );
 
@@ -1037,10 +1029,18 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       {/* Title */}
-      <div className="max-w-4xl mx-auto mb-6 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent"> 
-          Virtual Teaching Assistant
-        </h1>
+      <div className="flex max-w-4xl mx-auto mb-6 items-center justify-center gap-4">
+        <Image src="/logo.png" width={100} height={100} alt="Logo" />
+        <p className="text-8xl font-ubuntu bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent"> 
+          DORI
+        </p>
+      </div>
+
+      {/* Tagline */}
+      <div className="flex max-w-4xl mx-auto mb-6 items-center justify-center gap-4">
+        <p className="text-2xl font-ubuntu text-muted-foreground">
+          A virtual assistant to help you learn content
+        </p>
       </div>
 
       {/* Canvas Integration */}
@@ -1065,8 +1065,6 @@ export default function ChatPage() {
       <ChatSettings 
         useKnowledgeBase={useKnowledgeBase}
         setUseKnowledgeBase={setUseKnowledgeBase}
-        ttsEnabled={ttsEnabled}
-        setTTSEnabled={setTTSEnabled}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         persona={persona}

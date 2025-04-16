@@ -16,6 +16,19 @@ const ChatInterface = ({
 }) => {
   const messagesEndRef = useRef(null);
   const [activeCitations, setActiveCitations] = useState(null);
+  const [isListening, setIsListening] = useState(false);
+  
+  // Add useEffect for browser detection after component mounts to avoid hydration mismatch
+  useEffect(() => {
+    // This code only runs on the client after hydration, avoiding mismatch
+    const browserMessageEl = document.getElementById('browser-specific-message');
+    if (browserMessageEl && navigator && navigator.userAgent) {
+      const isFirefox = navigator.userAgent.indexOf("Firefox") > -1;
+      if (isFirefox) {
+        browserMessageEl.textContent = " Firefox users: If speech doesn't work, try Chrome or Edge.";
+      }
+    }
+  }, []);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -200,22 +213,133 @@ const ChatInterface = ({
             </Button>
           )}
         </form>
-        <div className="mt-2 flex gap-2">
-          <Button 
-            onClick={() => {
-              // Check if startSpeechRecognition is available globally
-              if (typeof window !== 'undefined' && window.startSpeechRecognition) {
-                window.startSpeechRecognition(setInputMessage);
-              } else if (typeof startSpeechRecognition === 'function') {
-                startSpeechRecognition(setInputMessage);
-              } else {
-                // Fallback if function isn't available
-                console.error("Speech recognition function not available");
+        <div className="mt-2 flex flex-col">
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => {
+              // Directly implement speech recognition here instead of relying on window functions
+              console.log("Speech recognition button clicked");
+              
+              // Set UI state first
+              setIsListening(true);
+              setInputMessage("Listening...");
+              
+              // Directly implement speech recognition
+              const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+              
+              if (!SpeechRecognition) {
+                console.error("Speech recognition not supported in this browser. Please try Chrome.");
+                setIsListening(false);
+                setInputMessage("");
+                alert("Speech recognition is not supported in this browser. Please try Chrome or Edge.");
+                return;
+              }
+              
+              // Check browser type without causing hydration mismatch
+              let isFirefox = false;
+              // Only run this on the client side
+              if (typeof navigator !== 'undefined' && navigator.userAgent) {
+                isFirefox = navigator.userAgent.indexOf("Firefox") > -1;
+                if (isFirefox) {
+                  console.warn("Using Firefox for speech recognition. For better results, try Chrome or Edge.");
+                }
+              }
+              
+              try {
+                const recognition = new SpeechRecognition();
+                
+                // Configure recognition
+                recognition.lang = "en-US";
+                recognition.interimResults = false;
+                recognition.continuous = false;
+                recognition.maxAlternatives = 1;
+                
+                // Firefox needs special handling - only run this code if isFirefox is true
+                // and we're in the browser (not during server rendering)
+                if (isFirefox) {
+                  // Firefox sometimes needs these settings to be more explicit
+                  recognition.interimResults = false;
+                  recognition.continuous = false;
+                }
+                
+                // Set a timeout for all browsers to prevent hanging
+                const timeoutId = setTimeout(() => {
+                  if (isListening) {
+                    try {
+                      recognition.stop();
+                    } catch (e) {
+                      console.log("Error stopping recognition:", e);
+                    }
+                    setIsListening(false);
+                    setInputMessage(prev => prev === "Listening..." ? "" : prev);
+                    console.log("Stopped listening due to timeout");
+                  }
+                }, 10000);
+                
+                // Clear timeout if recognition ends normally
+                recognition.onend = () => {
+                  clearTimeout(timeoutId);
+                  console.log("Speech recognition ended");
+                  setIsListening(false);
+                };
+                
+                // Firefox needs these handlers set BEFORE calling start()
+                recognition.onstart = () => {
+                  console.log("Speech recognition started successfully");
+                  setIsListening(true);
+                  setInputMessage("Listening...");
+                };
+                
+                recognition.onresult = (event) => {
+                  console.log("Speech recognition result received", event);
+                  if (event.results && event.results[0] && event.results[0][0]) {
+                    const speechResult = event.results[0][0].transcript;
+                    console.log("Speech recognized:", speechResult);
+                    setInputMessage(speechResult);
+                  } else {
+                    console.warn("Received speech event but no transcript found");
+                  }
+                  setIsListening(false);
+                };
+                
+                recognition.onerror = (event) => {
+                  console.error("Speech recognition error:", event.error);
+                  setInputMessage("");
+                  setIsListening(false);
+                  
+                  // Show alert for common errors
+                  if (event.error === 'not-allowed') {
+                    alert("Microphone access was denied. Please allow microphone access to use speech recognition.");
+                  } else if (event.error === 'no-speech') {
+                    alert("No speech was detected. Please try again.");
+                  }
+                };
+                
+                recognition.onend = () => {
+                  console.log("Speech recognition ended");
+                  setIsListening(false);
+                };
+                
+                // Start recognition
+                recognition.start();
+                console.log("Called recognition.start()");
+                
+              } catch (error) {
+                console.error("Error starting speech recognition:", error);
+                setIsListening(false);
+                setInputMessage("");
+                alert("Error starting speech recognition: " + error.message);
               }
             }}
-            className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:brightness-110 shadow-sm"
+            disabled={isListening}
+            className={`
+              ${isListening 
+                ? 'bg-red-500 animate-pulse' 
+                : 'bg-gradient-to-r from-primary to-primary/90'} 
+              text-primary-foreground hover:brightness-110 shadow-sm
+            `}
           >
-            Start Speaking
+            {isListening ? "Listening..." : "🎤 Start Speaking"}
           </Button>
           
           {activeCitations && (
@@ -244,6 +368,12 @@ const ChatInterface = ({
               Reset Conversation
             </Button>
           )}
+          </div>
+          <div className="text-xs text-muted-foreground mt-1">
+            Note: You may need to allow microphone access when prompted.
+            {/* Move browser detection logic to a useEffect to avoid hydration mismatch */}
+            <span id="browser-specific-message"></span>
+          </div>
         </div>
       </CardContent>
     </Card>

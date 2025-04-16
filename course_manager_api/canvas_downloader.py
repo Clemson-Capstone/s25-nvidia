@@ -16,26 +16,105 @@ It's designed to be used with the Course Data Manager API.
 
 async def download_file_async(url, token, temp_file_path):
     """Download a file from Canvas asynchronously"""
+    print(f"[DOWNLOAD_FILE] Starting download from URL: {url}")
+    print(f"[DOWNLOAD_FILE] Target path: {temp_file_path}")
+    print(f"[DOWNLOAD_FILE] Token length: {len(token)}")
+    
     ssl_context = ssl.create_default_context(cafile=certifi.where())
     
     headers = {
         "Authorization": f"Bearer {token}"
     }
+    print(f"[DOWNLOAD_FILE] Headers: {headers}")
     
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, headers=headers, ssl=ssl_context) as response:
-            if response.status != 200:
-                response_text = await response.text()
-                raise Exception(f"Failed to download file: {response_text}")
+    try:
+        total_size = 0
+        start_time = None
+        
+        async with aiohttp.ClientSession() as session:
+            # Log request start time
+            import time
+            start_time = time.time()
+            print(f"[DOWNLOAD_FILE] Starting request at {start_time}")
             
-            with open(temp_file_path, "wb") as f:
-                while True:
-                    chunk = await response.content.read(8192)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+            # First try to make a HEAD request to get content-length and other metadata
+            try:
+                async with session.head(url, headers=headers, ssl=ssl_context) as head_response:
+                    print(f"[DOWNLOAD_FILE] HEAD response status: {head_response.status}")
+                    print(f"[DOWNLOAD_FILE] HEAD response headers: {head_response.headers}")
+                    content_length = head_response.headers.get('Content-Length')
+                    if content_length:
+                        print(f"[DOWNLOAD_FILE] Content length: {content_length} bytes")
+                    content_type = head_response.headers.get('Content-Type')
+                    if content_type:
+                        print(f"[DOWNLOAD_FILE] Content type: {content_type}")
+            except Exception as head_error:
+                print(f"[DOWNLOAD_FILE] HEAD request failed (non-fatal): {str(head_error)}")
+            
+            # Now make the actual GET request to download the file
+            print(f"[DOWNLOAD_FILE] Sending GET request to download file")
+            
+            try:
+                async with session.get(url, headers=headers, ssl=ssl_context) as response:
+                    print(f"[DOWNLOAD_FILE] GET response status: {response.status}")
+                    print(f"[DOWNLOAD_FILE] GET response headers: {response.headers}")
+                    
+                    # Check if the response is successful
+                    if response.status != 200:
+                        response_text = await response.text()
+                        print(f"[DOWNLOAD_FILE] ERROR: Failed to download file. Status: {response.status}, Response: {response_text}")
+                        raise Exception(f"Failed to download file: {response_text}")
+                    
+                    # Create directory if it doesn't exist
+                    os.makedirs(os.path.dirname(temp_file_path), exist_ok=True)
+                    
+                    # Download the file in chunks
+                    print(f"[DOWNLOAD_FILE] Writing file to: {temp_file_path}")
+                    with open(temp_file_path, "wb") as f:
+                        chunk_count = 0
+                        while True:
+                            chunk = await response.content.read(8192)
+                            if not chunk:
+                                break
+                            chunk_size = len(chunk)
+                            total_size += chunk_size
+                            chunk_count += 1
+                            f.write(chunk)
+                            
+                            # Log progress for every 10 chunks or large files
+                            if chunk_count % 10 == 0 or chunk_size > 1000000:
+                                print(f"[DOWNLOAD_FILE] Downloaded {total_size} bytes so far ({chunk_count} chunks)")
+                
+                # Log successful download completion and file size
+                end_time = time.time()
+                duration = end_time - start_time
+                print(f"[DOWNLOAD_FILE] Download completed in {duration:.2f} seconds")
+                print(f"[DOWNLOAD_FILE] Total file size: {total_size} bytes")
+                
+                # Verify file exists and has content
+                if os.path.exists(temp_file_path):
+                    file_size = os.path.getsize(temp_file_path)
+                    print(f"[DOWNLOAD_FILE] Verified file on disk: {temp_file_path}, size: {file_size} bytes")
+                    
+                    if file_size == 0:
+                        print(f"[DOWNLOAD_FILE] WARNING: Downloaded file is empty (0 bytes)")
+                else:
+                    print(f"[DOWNLOAD_FILE] ERROR: File does not exist after download: {temp_file_path}")
+                    raise Exception("File does not exist after download")
+            
+            except Exception as e:
+                print(f"[DOWNLOAD_FILE] ERROR during download: {str(e)}")
+                import traceback
+                print(f"[DOWNLOAD_FILE] Traceback: {traceback.format_exc()}")
+                raise
+        
+        return temp_file_path
     
-    return temp_file_path
+    except Exception as e:
+        print(f"[DOWNLOAD_FILE] FATAL ERROR: {str(e)}")
+        import traceback
+        print(f"[DOWNLOAD_FILE] Traceback: {traceback.format_exc()}")
+        raise
 
 async def download_page_async(url, token, temp_file_path):
     """Download a page content from Canvas asynchronously"""
@@ -415,94 +494,236 @@ async def download_discussion(course_id: str, discussion_id: str, token: str, fi
 
 async def download_file_content(course_id: str, file_id: str, token: str, filename: str = None):
     """Download a file from Canvas using the file ID"""
-    print(f"Downloading file with course_id={course_id}, file_id={file_id}")
+    print(f"[DOWNLOAD_FILE_CONTENT] Starting download for course_id={course_id}, file_id={file_id}")
+    print(f"[DOWNLOAD_FILE_CONTENT] Requested filename: {filename}")
+    print(f"[DOWNLOAD_FILE_CONTENT] Token length: {len(token)}")
     
     try:
+        import time
+        start_time = time.time()
+        print(f"[DOWNLOAD_FILE_CONTENT] Started at: {start_time}")
+        
         # Use URL-encoded token to avoid any special character issues
         token = token.strip()
         api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/files/{file_id}"
         headers = {"Authorization": f"Bearer {token}"}
+        print(f"[DOWNLOAD_FILE_CONTENT] Using API URL: {api_url}")
+        print(f"[DOWNLOAD_FILE_CONTENT] Headers: {headers}")
         
         ssl_context = ssl.create_default_context(cafile=certifi.where())
         
         async with aiohttp.ClientSession() as session:
             # First request to get file info
-            async with session.get(api_url, headers=headers, ssl=ssl_context) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    print(f"File info error: {error_text}")
-                    raise HTTPException(status_code=response.status, detail=f"Failed to get file info: {error_text}")
-                
-                file_info = await response.json()
-                print(f"Successfully retrieved file info: {file_info.get('display_name')}")
+            print(f"[DOWNLOAD_FILE_CONTENT] Making initial request to get file info")
+            try:
+                async with session.get(api_url, headers=headers, ssl=ssl_context) as response:
+                    print(f"[DOWNLOAD_FILE_CONTENT] File info response status: {response.status}")
+                    print(f"[DOWNLOAD_FILE_CONTENT] File info response headers: {response.headers}")
+                    
+                    if response.status != 200:
+                        error_text = await response.text()
+                        print(f"[DOWNLOAD_FILE_CONTENT] ERROR: File info request failed: {error_text}")
+                        raise HTTPException(status_code=response.status, detail=f"Failed to get file info: {error_text}")
+                    
+                    file_info = await response.json()
+                    print(f"[DOWNLOAD_FILE_CONTENT] Successfully retrieved file info: {file_info.get('display_name')}")
+                    print(f"[DOWNLOAD_FILE_CONTENT] File info: {file_info}")
+            except Exception as file_info_error:
+                print(f"[DOWNLOAD_FILE_CONTENT] EXCEPTION during file info request: {str(file_info_error)}")
+                import traceback
+                print(f"[DOWNLOAD_FILE_CONTENT] File info traceback: {traceback.format_exc()}")
+                raise
                 
                 # Try multiple download methods in order of preference
                 
                 # Determine proper mime type and filename upfront
                 original_filename = file_info.get("display_name", "file")
                 content_type = file_info.get("content-type", "application/octet-stream")
+                file_size = file_info.get("size", 0)
+                file_modified = file_info.get("updated_at", "unknown")
+                
+                print(f"[DOWNLOAD_FILE_CONTENT] Original file metadata: name={original_filename}, type={content_type}, size={file_size}, modified={file_modified}")
                 
                 # Make sure we don't add .html extension when we already have a content type
                 if not filename:
                     filename = original_filename
+                    print(f"[DOWNLOAD_FILE_CONTENT] Using original filename: {filename}")
+                else:
+                    print(f"[DOWNLOAD_FILE_CONTENT] Using provided filename: {filename}")
                 
-                print(f"File info: filename={filename}, content_type={content_type}")
+                # Check file properties
+                print(f"[DOWNLOAD_FILE_CONTENT] File URL available: {'url' in file_info}")
+                if 'url' in file_info:
+                    print(f"[DOWNLOAD_FILE_CONTENT] File URL: {file_info.get('url')}")
                 
                 # Method 1: Try direct Canvas download endpoint using the API v1 URL (most reliable)
+                print(f"[DOWNLOAD_FILE_CONTENT] === METHOD 1: Direct API Download ===")
                 try:
                     # This is the most reliable way to download from Canvas - using the API
                     direct_url = f"https://clemson.instructure.com/api/v1/files/{file_id}/download"
-                    print(f"Attempting Method 1: Direct Canvas API endpoint: {direct_url}")
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 1 URL: {direct_url}")
                     
                     # Ensure proper auth header format based on Canvas API docs
                     api_headers = {
                         "Authorization": f"Bearer {token}",
                         "Accept": "*/*"
                     }
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 1 headers: {api_headers}")
+                    
+                    method1_start = time.time()
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 1 request starting at: {method1_start}")
                     
                     async with session.get(direct_url, headers=api_headers, ssl=ssl_context, allow_redirects=True) as file_response:
-                        if file_response.status == 200:
-                            response_content_type = file_response.headers.get("Content-Type", content_type)
-                            file_content = await file_response.read()
-                            print(f"Method 1 SUCCESS: Downloaded {len(file_content)} bytes with content type: {response_content_type}")
+                        method1_status = file_response.status
+                        method1_headers = file_response.headers
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 1 response status: {method1_status}")
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 1 response headers: {method1_headers}")
+                        
+                        if method1_status == 200:
+                            response_content_type = method1_headers.get("Content-Type", content_type)
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 1 content type: {response_content_type}")
                             
-                            return Response(
-                                content=file_content,
-                                media_type=response_content_type,
-                                headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-                            )
-                        else:
-                            print(f"Method 1 failed with status {file_response.status}")
-                except Exception as e1:
-                    print(f"Method 1 exception: {str(e1)}")
-                
-                # Method 2: Try using the URL from the file info
-                download_url = file_info.get('url')
-                if download_url:
-                    try:
-                        print(f"Attempting Method 2: Using file_info URL: {download_url}")
-                        # According to Canvas docs, the file.url might be a pre-signed URL that doesn't need auth
-                        # So try both with and without auth header
-                        async with session.get(download_url, ssl=ssl_context, allow_redirects=True) as file_response:
-                            if file_response.status == 200:
-                                content_type = file_response.headers.get("Content-Type", "application/octet-stream")
+                            try:
                                 file_content = await file_response.read()
-                                print(f"Method 2 SUCCESS: Downloaded {len(file_content)} bytes")
+                                content_length = len(file_content)
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 1 SUCCESS: Downloaded {content_length} bytes")
                                 
-                                if not filename:
-                                    filename = file_info.get("display_name", "canvas_file")
+                                # Check if content seems valid
+                                if content_length == 0:
+                                    print(f"[DOWNLOAD_FILE_CONTENT] WARNING: Method 1 returned empty content (0 bytes)")
+                                    raise Exception("Empty file content")
+                                
+                                if content_length < 100:
+                                    # For small content, print it to help debugging
+                                    try:
+                                        text_preview = file_content.decode('utf-8', errors='replace')[:100]
+                                        print(f"[DOWNLOAD_FILE_CONTENT] Content preview: {text_preview}")
+                                    except:
+                                        print(f"[DOWNLOAD_FILE_CONTENT] Content is binary, no preview available")
+                                
+                                # Check if expected file size matches
+                                if file_size > 0 and content_length != file_size:
+                                    print(f"[DOWNLOAD_FILE_CONTENT] WARNING: Downloaded size ({content_length}) doesn't match expected size ({file_size})")
+                                
+                                method1_end = time.time()
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 1 completed in {method1_end - method1_start:.2f} seconds")
                                 
                                 return Response(
                                     content=file_content,
-                                    media_type=content_type,
+                                    media_type=response_content_type,
                                     headers={"Content-Disposition": f'attachment; filename="{filename}"'}
                                 )
+                            except Exception as read_error:
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 1 read error: {str(read_error)}")
+                                raise
+                        else:
+                            error_text = await file_response.text()
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 1 failed with status {method1_status}: {error_text}")
+                            
+                            # If we get a 401 or 403, there might be authentication issues
+                            if method1_status in [401, 403]:
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 1 failed with auth error: {method1_status}")
+                                
+                            # If we get a 404, the file might not exist
+                            if method1_status == 404:
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 1 failed with 404 - file not found")
+                except Exception as e1:
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 1 exception: {str(e1)}")
+                    import traceback
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 1 traceback: {traceback.format_exc()}")
+                
+                # Method 2: Try using the URL from the file info
+                print(f"[DOWNLOAD_FILE_CONTENT] === METHOD 2: Using file_info URL ===")
+                download_url = file_info.get('url')
+                if download_url:
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 URL: {download_url}")
+                    try:
+                        # According to Canvas docs, the file.url might be a pre-signed URL that doesn't need auth
+                        # So we'll try without auth headers first
+                        method2_start = time.time()
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 2 request starting at: {method2_start}")
+                        
+                        async with session.get(download_url, ssl=ssl_context, allow_redirects=True) as file_response:
+                            method2_status = file_response.status
+                            method2_headers = file_response.headers
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 2 response status: {method2_status}")
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 2 response headers: {method2_headers}")
+                            
+                            if method2_status == 200:
+                                response_content_type = method2_headers.get("Content-Type", "application/octet-stream")
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 2 content type: {response_content_type}")
+                                
+                                try:
+                                    file_content = await file_response.read()
+                                    content_length = len(file_content)
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 SUCCESS: Downloaded {content_length} bytes")
+                                    
+                                    # Check if content seems valid
+                                    if content_length == 0:
+                                        print(f"[DOWNLOAD_FILE_CONTENT] WARNING: Method 2 returned empty content (0 bytes)")
+                                        raise Exception("Empty file content")
+                                    
+                                    if content_length < 100:
+                                        # For small content, print it to help debugging
+                                        try:
+                                            text_preview = file_content.decode('utf-8', errors='replace')[:100]
+                                            print(f"[DOWNLOAD_FILE_CONTENT] Content preview: {text_preview}")
+                                        except:
+                                            print(f"[DOWNLOAD_FILE_CONTENT] Content is binary, no preview available")
+                                    
+                                    # Check if expected file size matches
+                                    if file_size > 0 and content_length != file_size:
+                                        print(f"[DOWNLOAD_FILE_CONTENT] WARNING: Downloaded size ({content_length}) doesn't match expected size ({file_size})")
+                                    
+                                    method2_end = time.time()
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 completed in {method2_end - method2_start:.2f} seconds")
+                                    
+                                    if not filename:
+                                        filename = file_info.get("display_name", "canvas_file")
+                                    
+                                    return Response(
+                                        content=file_content,
+                                        media_type=response_content_type,
+                                        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                                    )
+                                except Exception as read_error:
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 read error: {str(read_error)}")
+                                    raise
                             else:
-                                print(f"Method 2 failed with status {file_response.status}")
+                                error_text = await file_response.text()
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 2 failed with status {method2_status}: {error_text}")
+                        
+                        # If the first attempt failed, try again with authorization headers
+                        if method2_status != 200:
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 2 retrying with auth headers")
+                            api_headers = {
+                                "Authorization": f"Bearer {token}",
+                                "Accept": "*/*"
+                            }
+                            async with session.get(download_url, headers=api_headers, ssl=ssl_context, allow_redirects=True) as auth_response:
+                                method2_auth_status = auth_response.status
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 2 auth response status: {method2_auth_status}")
+                                
+                                if method2_auth_status == 200:
+                                    content_type = auth_response.headers.get("Content-Type", "application/octet-stream")
+                                    file_content = await auth_response.read()
+                                    content_length = len(file_content)
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 with auth SUCCESS: Downloaded {content_length} bytes")
+                                    
+                                    return Response(
+                                        content=file_content,
+                                        media_type=content_type,
+                                        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                                    )
+                                else:
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 with auth failed: {method2_auth_status}")
+                        
                     except Exception as e2:
-                        print(f"Method 2 exception: {str(e2)}")
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 2 exception: {str(e2)}")
+                        import traceback
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 2 traceback: {traceback.format_exc()}")
                 else:
-                    print("Method 2 skipped: No URL in file_info")
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 2 skipped: No URL in file_info")
                 
                 # Method 3: Try global files endpoint with the specific download parameter
                 try:
@@ -559,43 +780,131 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                     print(f"Method 4 exception: {str(e4)}")
                 
                 # Method 5: Try the Canvas Files API endpoint with a different token format
+                print(f"[DOWNLOAD_FILE_CONTENT] === METHOD 5: Files API with enhanced preview URL ===")
                 try:
                     api_method_url = f"https://clemson.instructure.com/api/v1/files/{file_id}?include[]=enhanced_preview_url"
                     cookie_headers = {
                         "Cookie": f"_csrf_token={token}; canvas_session={token}",
                         "Accept": "*/*"
                     }
-                    print(f"Attempting Method 4: Files API with cookie auth: {api_method_url}")
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 URL: {api_method_url}")
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 cookie headers: {cookie_headers}")
+                    
+                    method5_start = time.time()
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 request starting at: {method5_start}")
                     
                     async with session.get(api_method_url, headers=cookie_headers, ssl=ssl_context) as api_response:
-                        if api_response.status == 200:
-                            api_data = await api_response.json()
-                            if "enhanced_preview_url" in api_data:
-                                preview_url = api_data["enhanced_preview_url"]
+                        method5_status = api_response.status
+                        method5_headers = api_response.headers
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 5 response status: {method5_status}")
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 5 response headers: {method5_headers}")
+                        
+                        if method5_status == 200:
+                            try:
+                                api_data = await api_response.json()
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 5 API data keys: {list(api_data.keys() if isinstance(api_data, dict) else [])}")
                                 
-                                async with session.get(preview_url, headers=cookie_headers, ssl=ssl_context) as preview_response:
-                                    if preview_response.status == 200:
-                                        content_type = preview_response.headers.get("Content-Type", "application/octet-stream")
-                                        file_content = await preview_response.read()
-                                        print(f"Method 4 SUCCESS: Downloaded {len(file_content)} bytes")
-                                        
-                                        if not filename:
-                                            filename = file_info.get("display_name", "canvas_file")
-                                        
-                                        return Response(
-                                            content=file_content,
-                                            media_type=content_type,
-                                            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
-                                        )
-                                    else:
-                                        print(f"Method 4 preview download failed with status {preview_response.status}")
+                                if isinstance(api_data, dict) and "enhanced_preview_url" in api_data:
+                                    preview_url = api_data["enhanced_preview_url"]
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 found enhanced_preview_url: {preview_url}")
+                                    
+                                    # Attempt to download using the preview URL
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 attempting preview download")
+                                    try:
+                                        async with session.get(preview_url, headers=cookie_headers, ssl=ssl_context) as preview_response:
+                                            preview_status = preview_response.status
+                                            preview_headers = preview_response.headers
+                                            print(f"[DOWNLOAD_FILE_CONTENT] Method 5 preview response status: {preview_status}")
+                                            print(f"[DOWNLOAD_FILE_CONTENT] Method 5 preview headers: {preview_headers}")
+                                            
+                                            if preview_status == 200:
+                                                response_content_type = preview_headers.get("Content-Type", "application/octet-stream")
+                                                print(f"[DOWNLOAD_FILE_CONTENT] Method 5 preview content type: {response_content_type}")
+                                                
+                                                file_content = await preview_response.read()
+                                                content_length = len(file_content)
+                                                print(f"[DOWNLOAD_FILE_CONTENT] Method 5 SUCCESS: Downloaded {content_length} bytes")
+                                                
+                                                # Check if content seems valid
+                                                if content_length == 0:
+                                                    print(f"[DOWNLOAD_FILE_CONTENT] WARNING: Method 5 returned empty content (0 bytes)")
+                                                    raise Exception("Empty file content")
+                                                
+                                                method5_end = time.time()
+                                                print(f"[DOWNLOAD_FILE_CONTENT] Method 5 completed in {method5_end - method5_start:.2f} seconds")
+                                                
+                                                if not filename:
+                                                    filename = file_info.get("display_name", "canvas_file")
+                                                
+                                                return Response(
+                                                    content=file_content,
+                                                    media_type=response_content_type,
+                                                    headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                                                )
+                                            else:
+                                                error_text = await preview_response.text()
+                                                print(f"[DOWNLOAD_FILE_CONTENT] Method 5 preview download failed with status {preview_status}: {error_text}")
+                                    except Exception as preview_error:
+                                        print(f"[DOWNLOAD_FILE_CONTENT] Method 5 preview download error: {str(preview_error)}")
+                                        raise
+                                else:
+                                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 did not find enhanced_preview_url in response")
+                            except Exception as json_error:
+                                print(f"[DOWNLOAD_FILE_CONTENT] Method 5 JSON parsing error: {str(json_error)}")
+                                raise
                         else:
-                            print(f"Method 4 failed with status {api_response.status}")
-                except Exception as e4:
-                    print(f"Method 4 exception: {str(e4)}")
+                            error_text = await api_response.text()
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 5 failed with status {method5_status}: {error_text}")
+                except Exception as e5:
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 exception: {str(e5)}")
+                    import traceback
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 5 traceback: {traceback.format_exc()}")
+                
+                # Method 6: Try another API endpoint format as last resort
+                print(f"[DOWNLOAD_FILE_CONTENT] === METHOD 6: Alternative API endpoint format ===")
+                try:
+                    alt_url = f"https://clemson.instructure.com/api/v1/files/{file_id}?include[]=user&include[]=usage_rights"
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 6 URL: {alt_url}")
+                    
+                    method6_start = time.time()
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 6 request starting at: {method6_start}")
+                    
+                    async with session.get(alt_url, headers=headers, ssl=ssl_context) as alt_response:
+                        method6_status = alt_response.status
+                        print(f"[DOWNLOAD_FILE_CONTENT] Method 6 response status: {method6_status}")
+                        
+                        if method6_status == 200:
+                            alt_data = await alt_response.json()
+                            print(f"[DOWNLOAD_FILE_CONTENT] Method 6 received JSON data with keys: {list(alt_data.keys() if isinstance(alt_data, dict) else [])}")
+                            
+                            # Look for any download URLs in the response
+                            if isinstance(alt_data, dict):
+                                for key in ['url', 'download_url', 'preview_url']:
+                                    if key in alt_data and alt_data[key]:
+                                        download_url = alt_data[key]
+                                        print(f"[DOWNLOAD_FILE_CONTENT] Method 6 found download URL in '{key}': {download_url}")
+                                        
+                                        # Try to download with this URL
+                                        async with session.get(download_url, ssl=ssl_context, allow_redirects=True) as download_response:
+                                            if download_response.status == 200:
+                                                file_content = await download_response.read()
+                                                print(f"[DOWNLOAD_FILE_CONTENT] Method 6 SUCCESS: Downloaded {len(file_content)} bytes")
+                                                
+                                                if not filename:
+                                                    filename = file_info.get("display_name", "canvas_file")
+                                                
+                                                return Response(
+                                                    content=file_content,
+                                                    media_type=download_response.headers.get("Content-Type", "application/octet-stream"),
+                                                    headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+                                                )
+                except Exception as e6:
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 6 exception: {str(e6)}")
+                    import traceback
+                    print(f"[DOWNLOAD_FILE_CONTENT] Method 6 traceback: {traceback.format_exc()}")
                 
                 # All methods failed, create a fallback HTML but with more context
-                print("All download methods failed, creating fallback HTML")
+                print(f"[DOWNLOAD_FILE_CONTENT] All download methods failed, creating fallback HTML")
                 
                 # Get additional file details for better context
                 file_type = file_info.get('content-type', 'Unknown')
@@ -603,6 +912,25 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                 file_created = file_info.get('created_at', 'Unknown')
                 file_updated = file_info.get('updated_at', 'Unknown')
                 file_display_name = file_info.get('display_name', 'File')
+                file_uuid = file_info.get('uuid', 'Unknown')
+                file_mime_class = file_info.get('mime_class', 'Unknown')
+                
+                print(f"[DOWNLOAD_FILE_CONTENT] Creating fallback HTML with file details:")
+                print(f"[DOWNLOAD_FILE_CONTENT] - Type: {file_type}")
+                print(f"[DOWNLOAD_FILE_CONTENT] - Size: {file_size}")
+                print(f"[DOWNLOAD_FILE_CONTENT] - Created: {file_created}")
+                print(f"[DOWNLOAD_FILE_CONTENT] - Updated: {file_updated}")
+                print(f"[DOWNLOAD_FILE_CONTENT] - Display Name: {file_display_name}")
+                print(f"[DOWNLOAD_FILE_CONTENT] - UUID: {file_uuid}")
+                print(f"[DOWNLOAD_FILE_CONTENT] - MIME Class: {file_mime_class}")
+                
+                # Additional debugging info
+                available_urls = []
+                if 'url' in file_info:
+                    available_urls.append(("File info URL", file_info.get('url')))
+                available_urls.append(("API download endpoint", f"https://clemson.instructure.com/api/v1/files/{file_id}/download"))
+                available_urls.append(("Direct Canvas URL", f"https://clemson.instructure.com/courses/{course_id}/files/{file_id}"))
+                available_urls.append(("Download URL with verifier", f"https://clemson.instructure.com/courses/{course_id}/files/{file_id}/download?download_frd=1&verifier={file_uuid}"))
                 
                 # Create a richer HTML fallback with file details and Canvas URI
                 html_content = f"""
@@ -620,6 +948,8 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                         .actions a:hover {{ background-color: #0262A0; }}
                         .note {{ font-style: italic; margin-top: 30px; color: #666; }}
                         pre {{ background: #f8f8f8; padding: 10px; overflow-x: auto; }}
+                        .error {{ background: #fff0f0; color: #d32f2f; padding: 10px; border-radius: 5px; margin-top: 20px; }}
+                        .timestamp {{ color: #666; font-size: 0.8em; margin-top: 20px; }}
                     </style>
                 </head>
                 <body>
@@ -634,6 +964,8 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                             <p><strong>Last Updated:</strong> {file_updated}</p>
                             <p><strong>File ID:</strong> {file_id}</p>
                             <p><strong>Course ID:</strong> {course_id}</p>
+                            <p><strong>MIME Class:</strong> {file_mime_class}</p>
+                            <p><strong>UUID:</strong> {file_uuid}</p>
                         </div>
                         
                         <div class="actions">
@@ -645,25 +977,36 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                             </a>
                         </div>
                         
-                        <p class="note">Note: You may need to be logged into Canvas to access this file.</p>
+                        <p class="note">Note: You may need to be logged into Canvas to access this file. This file could not be automatically downloaded.</p>
+                        
+                        <div class="error">
+                            <h3>Error Notice</h3>
+                            <p>The system was unable to directly download this file for the knowledge base. This may be due to permission settings, file type restrictions, or other Canvas API limitations.</p>
+                        </div>
                         
                         <div>
                             <h3>Debug Information</h3>
-                            <p>The system was unable to directly download this file for the knowledge base. The following download URLs were attempted:</p>
-                            <pre>1. https://clemson.instructure.com/courses/{course_id}/files/{file_id}/download
-2. {file_info.get('url', 'No URL in file info')}
-3. https://clemson.instructure.com/files/{file_id}/download?download_frd=1
-4. Files API with alternative authentication
-</pre>
+                            <p>The following download URLs were attempted:</p>
+                            <pre>"""
+                
+                # Add all attempted URLs to the debug info
+                for i, (url_name, url) in enumerate(available_urls):
+                    html_content += f"{i+1}. {url_name}: {url}\n"
+                
+                html_content += f"""</pre>
                         </div>
+                        
+                        <p class="timestamp">Attempted download: {datetime.datetime.now().isoformat()}</p>
                     </div>
                 </body>
                 </html>
                 """
                 
                 if not filename:
-                    filename = f"{file_display_name.replace(' ', '_')}.html"
+                    filename = f"{file_display_name.replace(' ', '_')}_unavailable.html"
+                    print(f"[DOWNLOAD_FILE_CONTENT] Generated filename: {filename}")
                 
+                print(f"[DOWNLOAD_FILE_CONTENT] Returning fallback HTML response, length: {len(html_content)}")
                 return Response(
                     content=html_content,
                     media_type="text/html",
@@ -671,10 +1014,46 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                 )
                 
     except Exception as e:
-        print(f"Exception in download_file_content: {str(e)}")
-        traceback.print_exc()
+        print(f"[DOWNLOAD_FILE_CONTENT] FATAL EXCEPTION: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        print(f"[DOWNLOAD_FILE_CONTENT] Error traceback: {error_traceback}")
         
-        # Create a graceful error HTML with debugging information
+        # Get as much info as possible about the file
+        file_info_str = "Unknown"
+        try:
+            if 'file_info' in locals() and file_info:
+                # Try to extract useful info even if we can't access the whole object
+                info_parts = []
+                for k in ['display_name', 'content-type', 'size', 'id', 'uuid']:
+                    if k in file_info:
+                        info_parts.append(f"{k}={file_info.get(k)}")
+                file_info_str = ", ".join(info_parts)
+        except:
+            pass
+        
+        print(f"[DOWNLOAD_FILE_CONTENT] File info: {file_info_str}")
+        
+        # Log all attempted download methods
+        print(f"[DOWNLOAD_FILE_CONTENT] Attempted download methods:")
+        download_methods = {
+            "Method 1": f"API download endpoint (api/v1/files/{file_id}/download)",
+            "Method 2": "file_info URL",
+            "Method 3": f"Global files endpoint (api/v1/files/{file_id}?include[]=avatar)",
+            "Method 4": f"Direct download URL with verifier",
+            "Method 5": "Enhanced preview URL",
+            "Method 6": "Alternative API endpoint"
+        }
+        for method, description in download_methods.items():
+            print(f"[DOWNLOAD_FILE_CONTENT] - {method}: {description}")
+        
+        # Get error type and message
+        error_type = type(e).__name__
+        error_msg = str(e)
+        print(f"[DOWNLOAD_FILE_CONTENT] Error type: {error_type}")
+        print(f"[DOWNLOAD_FILE_CONTENT] Error message: {error_msg}")
+        
+        # Create a graceful error HTML with comprehensive debugging information
         html_content = f"""
         <html>
         <head>
@@ -682,13 +1061,19 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
                 h1 {{ color: #d32f2f; }}
+                h2 {{ color: #2d3b45; margin-top: 30px; }}
                 .container {{ margin: 20px auto; max-width: 800px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }}
                 .error {{ color: #d32f2f; font-family: monospace; white-space: pre-wrap; text-align: left; 
                          padding: 10px; background: #f5f5f5; overflow-x: auto; }}
                 .actions {{ margin-top: 20px; text-align: center; }}
                 .actions a {{ display: inline-block; padding: 10px 20px; background-color: #0374B5; color: white; 
-                             text-decoration: none; border-radius: 5px; }}
+                             text-decoration: none; border-radius: 5px; margin: 0 10px; }}
                 .actions a:hover {{ background-color: #0262A0; }}
+                .metadata {{ background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+                .note {{ font-style: italic; margin-top: 30px; color: #666; }}
+                .timestamp {{ color: #666; font-size: 0.8em; margin-top: 20px; }}
+                details {{ margin: 10px 0; }}
+                summary {{ cursor: pointer; padding: 5px; background: #f0f0f0; }}
             </style>
         </head>
         <body>
@@ -696,26 +1081,53 @@ async def download_file_content(course_id: str, file_id: str, token: str, filena
                 <h1>File Download Error</h1>
                 <p>There was an error downloading this file from Canvas. The system could not retrieve the file content directly.</p>
                 
-                <h3>Error details:</h3>
-                <div class="error">{str(e)}</div>
-                
                 <div class="actions">
                     <a href="https://clemson.instructure.com/courses/{course_id}/files/{file_id}" target="_blank">
                         Access File in Canvas
                     </a>
+                    <a href="https://clemson.instructure.com/courses/{course_id}/files/{file_id}/download?download_frd=1" target="_blank">
+                        Direct Download Link
+                    </a>
                 </div>
                 
-                <p>This file was being downloaded for the knowledge base but encountered an authentication issue.</p>
-                <p>Course ID: {course_id}</p>
-                <p>File ID: {file_id}</p>
+                <div class="metadata">
+                    <h2>File Information</h2>
+                    <p><strong>Course ID:</strong> {course_id}</p>
+                    <p><strong>File ID:</strong> {file_id}</p>
+                    <p><strong>File Info:</strong> {file_info_str}</p>
+                    <p><strong>Requested Filename:</strong> {filename or "Not specified"}</p>
+                </div>
+                
+                <details>
+                    <summary>Error details (click to expand)</summary>
+                    <h3>Error Type: {error_type}</h3>
+                    <div class="error">{error_msg}</div>
+                </details>
+                
+                <details>
+                    <summary>Attempted Download Methods</summary>
+                    <ul>
+                        <li><strong>Method 1:</strong> API download endpoint (api/v1/files/{file_id}/download)</li>
+                        <li><strong>Method 2:</strong> Pre-signed URL from file info object</li>
+                        <li><strong>Method 3:</strong> Global files endpoint with avatar parameter</li>
+                        <li><strong>Method 4:</strong> Direct download URL with verifier token</li>
+                        <li><strong>Method 5:</strong> Enhanced preview URL from files API</li>
+                        <li><strong>Method 6:</strong> Alternative API endpoint format</li>
+                    </ul>
+                </details>
+                
+                <p class="note">This file was being downloaded for the knowledge base integration but encountered an error. You can try accessing it directly in Canvas using the links above.</p>
+                
+                <p class="timestamp">Error occurred at: {datetime.datetime.now().isoformat()}</p>
             </div>
         </body>
         </html>
         """
         
         if not filename:
-            filename = "file_download_error.html"
+            filename = f"error_file_{file_id}.html"
         
+        print(f"[DOWNLOAD_FILE_CONTENT] Returning error HTML response, length: {len(html_content)}")
         return Response(
             content=html_content,
             media_type="text/html",
@@ -769,42 +1181,112 @@ async def get_course_item_content(course_id: str, item_id: str, item_type: str, 
     Returns:
     - Response with the content and appropriate headers
     """
+    print(f"[GET_COURSE_ITEM] Starting request for course_id={course_id}, item_id={item_id}, item_type={item_type}")
+    print(f"[GET_COURSE_ITEM] Filename: {filename}, Token length: {len(token)}")
+    
     try:
         # Handle different content types using appropriate API endpoints
         item_type_lower = item_type.lower()
+        print(f"[GET_COURSE_ITEM] Processing item_type: {item_type_lower}")
         
         if item_type_lower == 'assignment':
-            return await download_assignment(course_id, item_id, token, filename)
+            print(f"[GET_COURSE_ITEM] Calling download_assignment for item_id={item_id}")
+            try:
+                response = await download_assignment(course_id, item_id, token, filename)
+                print(f"[GET_COURSE_ITEM] Assignment download successful")
+                return response
+            except Exception as assignment_error:
+                print(f"[GET_COURSE_ITEM] ERROR downloading assignment: {str(assignment_error)}")
+                import traceback
+                print(f"[GET_COURSE_ITEM] Assignment traceback: {traceback.format_exc()}")
+                raise
             
         elif item_type_lower in ['page', 'wiki_page']:
-            return await download_page_content(course_id, item_id, token, filename)
+            print(f"[GET_COURSE_ITEM] Calling download_page_content for item_id={item_id}")
+            try:
+                response = await download_page_content(course_id, item_id, token, filename)
+                print(f"[GET_COURSE_ITEM] Page download successful")
+                return response
+            except Exception as page_error:
+                print(f"[GET_COURSE_ITEM] ERROR downloading page: {str(page_error)}")
+                import traceback
+                print(f"[GET_COURSE_ITEM] Page traceback: {traceback.format_exc()}")
+                raise
             
         elif item_type_lower in ['quiz', 'quizzes/quiz']:
-            return await download_quiz(course_id, item_id, token, filename)
+            print(f"[GET_COURSE_ITEM] Calling download_quiz for item_id={item_id}")
+            try:
+                response = await download_quiz(course_id, item_id, token, filename)
+                print(f"[GET_COURSE_ITEM] Quiz download successful")
+                return response
+            except Exception as quiz_error:
+                print(f"[GET_COURSE_ITEM] ERROR downloading quiz: {str(quiz_error)}")
+                import traceback
+                print(f"[GET_COURSE_ITEM] Quiz traceback: {traceback.format_exc()}")
+                raise
             
         elif item_type_lower == 'file':
-            return await download_file_content(course_id, item_id, token, filename)
+            print(f"[GET_COURSE_ITEM] Calling download_file_content for item_id={item_id}")
+            try:
+                response = await download_file_content(course_id, item_id, token, filename)
+                print(f"[GET_COURSE_ITEM] File download successful")
+                return response
+            except Exception as file_error:
+                print(f"[GET_COURSE_ITEM] ERROR downloading file: {str(file_error)}")
+                import traceback
+                print(f"[GET_COURSE_ITEM] File traceback: {traceback.format_exc()}")
+                raise
             
         elif item_type_lower in ['discussion_topic', 'discussion']:
-            return await download_discussion(course_id, item_id, token, filename)
+            print(f"[GET_COURSE_ITEM] Calling download_discussion for item_id={item_id}")
+            try:
+                response = await download_discussion(course_id, item_id, token, filename)
+                print(f"[GET_COURSE_ITEM] Discussion download successful")
+                return response
+            except Exception as discussion_error:
+                print(f"[GET_COURSE_ITEM] ERROR downloading discussion: {str(discussion_error)}")
+                import traceback
+                print(f"[GET_COURSE_ITEM] Discussion traceback: {traceback.format_exc()}")
+                raise
             
         elif item_type_lower == 'externalurl':
-            # For external URLs, we need to get the URL from the module item first
-            api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/modules/items/{item_id}"
-            headers = {"Authorization": f"Bearer {token}"}
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(api_url, headers=headers) as response:
-                    if response.status == 200:
-                        item_data = await response.json()
-                        if 'external_url' in item_data:
-                            return await download_external_url(item_data['external_url'], token, filename)
-            
-            # If we couldn't get the URL, use a placeholder
-            return await download_external_url("https://clemson.instructure.com", token, filename)
+            print(f"[GET_COURSE_ITEM] Processing external URL for item_id={item_id}")
+            try:
+                # For external URLs, we need to get the URL from the module item first
+                api_url = f"https://clemson.instructure.com/api/v1/courses/{course_id}/modules/items/{item_id}"
+                headers = {"Authorization": f"Bearer {token}"}
+                print(f"[GET_COURSE_ITEM] Fetching external URL from: {api_url}")
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(api_url, headers=headers) as response:
+                        print(f"[GET_COURSE_ITEM] External URL response status: {response.status}")
+                        
+                        if response.status == 200:
+                            item_data = await response.json()
+                            print(f"[GET_COURSE_ITEM] External URL item data: {item_data}")
+                            
+                            if 'external_url' in item_data:
+                                external_url = item_data['external_url']
+                                print(f"[GET_COURSE_ITEM] Found external URL: {external_url}")
+                                return await download_external_url(external_url, token, filename)
+                            else:
+                                print(f"[GET_COURSE_ITEM] No external_url found in item data")
+                        else:
+                            error_text = await response.text()
+                            print(f"[GET_COURSE_ITEM] Failed to get module item: {error_text}")
+                
+                # If we couldn't get the URL, use a placeholder
+                print(f"[GET_COURSE_ITEM] Using placeholder URL")
+                return await download_external_url("https://clemson.instructure.com", token, filename)
+            except Exception as external_url_error:
+                print(f"[GET_COURSE_ITEM] ERROR processing external URL: {str(external_url_error)}")
+                import traceback
+                print(f"[GET_COURSE_ITEM] External URL traceback: {traceback.format_exc()}")
+                raise
             
         else:
             # For unsupported types, return a generic message
+            print(f"[GET_COURSE_ITEM] Unsupported item type: {item_type_lower}")
             html_content = f"""
             <html>
             <head>
@@ -820,14 +1302,17 @@ async def get_course_item_content(course_id: str, item_id: str, item_type: str, 
                     <h1>Unsupported Content Type</h1>
                     <p>The content type '{item_type}' is not currently supported for direct download.</p>
                     <p>You may need to access this content directly in Canvas.</p>
+                    <p>Item ID: {item_id}</p>
+                    <p>Course ID: {course_id}</p>
                 </div>
             </body>
             </html>
             """
             
             if not filename:
-                filename = "unsupported_content.html"
+                filename = f"unsupported_content_{item_type_lower}.html"
             
+            print(f"[GET_COURSE_ITEM] Returning unsupported content response with filename: {filename}")
             return Response(
                 content=html_content,
                 media_type="text/html",
@@ -836,5 +1321,45 @@ async def get_course_item_content(course_id: str, item_id: str, item_type: str, 
     
     except Exception as e:
         # Log the full exception for debugging
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[GET_COURSE_ITEM] FATAL ERROR: {str(e)}")
+        import traceback
+        traceback_str = traceback.format_exc()
+        print(f"[GET_COURSE_ITEM] Traceback: {traceback_str}")
+        
+        # Create an error response HTML
+        error_html = f"""
+        <html>
+        <head>
+            <title>Error Retrieving Content</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }}
+                h1 {{ color: #d32f2f; }}
+                .error {{ background-color: #ffebee; padding: 15px; border-radius: 5px; margin-top: 20px; }}
+                .details {{ background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 20px; font-family: monospace; white-space: pre-wrap; }}
+            </style>
+        </head>
+        <body>
+            <h1>Error Retrieving Content</h1>
+            <p>There was an error retrieving the requested content from Canvas.</p>
+            
+            <div class="error">
+                <p><strong>Error:</strong> {str(e)}</p>
+            </div>
+            
+            <div class="details">
+                <p><strong>Details:</strong></p>
+                <p>Course ID: {course_id}</p>
+                <p>Item ID: {item_id}</p>
+                <p>Item Type: {item_type}</p>
+                <p>Timestamp: {datetime.datetime.now().isoformat()}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Return the error HTML response
+        return Response(
+            content=error_html,
+            media_type="text/html",
+            headers={"Content-Disposition": f'attachment; filename="error_report.html"'}
+        )
