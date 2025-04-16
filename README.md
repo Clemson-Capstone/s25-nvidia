@@ -121,8 +121,22 @@ This is the recommended deployment option using your NVIDIA API key to access cl
    ```bash
    docker compose -f deploy/compose/docker-compose-ingestor-server.yaml up -d --build
    ```
+5. Start the rag containers from the repo root. This pulls the prebuilt containers from NGC and deploys it on your system.
+```bash
+   docker compose -f deploy/compose/docker-compose-rag-server.yaml up -d
+   ```
 
-5. Set up the guardrails container to use guardrails
+   **Tip**: Add `--build` if you've made code changes:
+   ```bash
+   docker compose -f deploy/compose/docker-compose-rag-server.yaml up -d --build
+   ```
+You can check the status of the rag-server and its dependencies by issuing this curl command
+
+```bash
+   curl -X 'GET' 'http://workstation_ip:8081/v1/health?check_dependencies=true' -H 'accept: application/json'
+   ```
+   
+6. Set up the guardrails container to use guardrails
 
 Set the environment variables for the guardrails
 ```bash
@@ -144,7 +158,7 @@ pip install langchain-nvidia-ai-endpoints
 pip install langchain-unstructured
 ```
 
-6. Confirm all containers are running:
+7. Confirm all containers are running:
 
    ```bash
    docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
@@ -164,7 +178,7 @@ pip install langchain-unstructured
    nemo-guardrails-microservice            Up 5 minutes
    ```
 
-7. Open a web browser and access `http://localhost:8090` to use the RAG Playground, or go to `http://localhost:3000` to use the frontend for the canvas application. The RAG playground is more for testing the chatbot, and the frontend is for the canvas integration with the chatbot.
+8. Open a web browser and access `http://localhost:8090` to use the RAG Playground, or go to `http://localhost:3000` to use the frontend for the canvas application. The RAG playground is more for testing the chatbot, and the frontend is for the canvas integration with the chatbot.
 
 ### Option 2: Deploy with On-Premises Models
 
