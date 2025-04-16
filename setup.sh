@@ -6,6 +6,18 @@ set -e
 GREEN='\033[0;32m'
 NC='\033[0m'
 
+# Install npm if not already installed for frontend
+echo -e "${GREEN}Setting up frontend dependencies...${NC}"
+if command -v npm &> /dev/null; then
+    cd ./frontend && npm install
+    echo -e "${GREEN}✓ Frontend dependencies installed${NC}"
+else
+    echo -e "${RED}✗ npm not found. Please install Node.js & npm to set up frontend.${NC}"
+fi
+
+echo -e "${GREEN} UV environment setup complete!${NC}"
+
+
 # Install uv if not already installed
 if ! command -v uv &> /dev/null; then
     echo -e "${GREEN}Installing uv...${NC}"
