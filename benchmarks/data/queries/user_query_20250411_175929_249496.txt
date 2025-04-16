@@ -1,0 +1,1 @@
+"Can you write a Python function that checks if a number is prime and explain how the loop works step-by-step?"

@@ -518,7 +518,7 @@ async def generate_answer(_: Request, prompt: Prompt) -> StreamingResponse:
             resp_id = str(uuid4())
             if generator:
                 logger.debug("Generated response chunks\n")
-                # Create ChainResponse object for every token generated
+                #m Create ChainResponse object for every token generated
                 #timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
                 for chunk in generator:
                     repo_root = os.path.dirname(os.path.abspath(__file__))

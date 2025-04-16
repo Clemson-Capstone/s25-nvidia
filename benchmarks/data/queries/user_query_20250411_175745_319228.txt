@@ -1,0 +1,1 @@
+Can you explain how to factor a quadratic equation like x² + 5x + 6 = 0 using the ‘ac method’ and show each step?

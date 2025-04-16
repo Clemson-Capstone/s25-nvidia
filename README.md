@@ -40,5 +40,5 @@ Contains the frontend code for the VTA. This is a NextJS 15 app, using TailwindC
 Taken from the Fall 2024 capstone project, this folder is a fork of [canvas-grab](https://github.com/skyzh/canvas_grab) that 
 has been modified to grab canvas data for Clemson students by the Fall 2024 capstone team
 
-#### 'ta_nemo_guardrails'
+#### `ta_nemo_guardrails`
 Taken from the Fall 2024 capstone project, this folder contains the NeMo guard rails for the VTA
