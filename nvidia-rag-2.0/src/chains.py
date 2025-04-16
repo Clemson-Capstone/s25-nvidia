@@ -16,6 +16,7 @@
 import logging
 import os
 import requests
+
 from traceback import print_exc
 from typing import Any, Iterable
 from typing import Dict
@@ -446,8 +447,12 @@ class UnstructuredRAG(BaseExample):
                     logger.warning("Could not generate sufficiently grounded response after %d total reflection attempts",
                                     reflection_counter.current_count)
                 return iter([final_response]), context_to_show
-            else:              
-                return chain.stream({"question": query, "context": docs}, config={'run_name':'llm-stream'}), context_to_show
+            else:
+                relevant_chunks_str = "\n\n".join([doc.page_content for doc in context_to_show])
+                injected_string = f"question: {query}\nrelevant_chunks: {relevant_chunks_str}"
+               
+                logger.info(f"INJECTED STRING: {injected_string}")
+                return chain.stream({"question": injected_string , "context": docs}, config={'run_name':'llm-stream'}), context_to_show
 
         except ConnectTimeout as e:
             logger.warning("Connection timed out while making a request to the LLM endpoint: %s", e)
