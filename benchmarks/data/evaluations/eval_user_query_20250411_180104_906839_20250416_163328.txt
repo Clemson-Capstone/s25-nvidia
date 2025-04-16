@@ -1,0 +1,15 @@
+
+========================================
+COMPREHENSIVE EVALUATION REPORT
+========================================
+- Semantic Similarity: 0.5227515697479248
+- Query Length: 17
+- Response Length: 57
+- Length Ratio: 3.35
+- Keyword Overlap: 0.44
+
+Quality Heuristics:
+- Does Not Contain Answer: ✓
+- Ends Properly: ✓
+- Avoids Opinion: ✓
+- Overall Score: 0.70

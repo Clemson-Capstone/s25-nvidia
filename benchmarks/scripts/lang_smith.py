@@ -2,6 +2,8 @@ from pathlib import Path
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+import os
+from datetime import datetime
 
 def load_text_file(file_path):
     """Load text content from a file"""
@@ -25,35 +27,38 @@ def evaluate_response_quality(response):
     response_lower = response.lower()
     return {
         "does_not_contain_answer": not any(word in response_lower for word in ["the answer", "the solution"]),
-        "contains_reasoning": any(word in response_lower for word in ["because", "therefore", "thus"]),
-        "is_structured": any(word in response_lower for word in ["first", "second", "finally"]),
         "ends_properly": response.strip().endswith(('.', '?', '!')),
         "avoids_opinion": not any(word in response_lower for word in ["i think", "in my opinion", "best"])
     }
 
-def generate_report(results):
+def generate_report(results, output_path=None):
     """Generate formatted evaluation report"""
-    print("\n" + "="*40)
-    print("COMPREHENSIVE EVALUATION REPORT")
-    print("="*40)
+    report_lines = []
+    report_lines.append("\n" + "="*40)
+    report_lines.append("COMPREHENSIVE EVALUATION REPORT")
+    report_lines.append("="*40)
     
     for key, value in results.items():
         if key == 'quality_metrics':
-            print("\nQuality Heuristics:")
+            report_lines.append("\nQuality Heuristics:")
             for metric, val in value.items():
-                print(f"- {metric.replace('_', ' ').title()}: {'✓' if val else '✗'}")
+                report_lines.append(f"- {metric.replace('_', ' ').title()}: {'✓' if val else '✗'}")
         else:
             if isinstance(value, float):
-                print(f"- {key.replace('_', ' ').title()}: {value:.2f}")
+                report_lines.append(f"- {key.replace('_', ' ').title()}: {value:.2f}")
             else:
-                print(f"- {key.replace('_', ' ').title()}: {value}")
+                report_lines.append(f"- {key.replace('_', ' ').title()}: {value}")
 
-def main():
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    report_text = "\n".join(report_lines)
     
-    query_path = r"C:\Users\jayle\s25-nvidia\benchmarks\data\queries\user_query_20250403_202616_074332.txt"
-    response_path = r"C:\Users\jayle\s25-nvidia\benchmarks\data\responses\vta_response_20250403_202616_074332.txt"
+    if output_path:
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(report_text)
+    
+    return report_text
 
+def process_pair(query_path, response_path, model, eval_dir):
+    """Process a single query-response pair"""
     try:
         user_query = load_text_file(query_path)
         llm_response = load_text_file(response_path)
@@ -61,10 +66,7 @@ def main():
         print(f"Error loading files: {e}")
         print(f"Query path: {query_path}")
         print(f"Response path: {response_path}")
-        return
-
-    print("=== USER QUERY ===\n", user_query)
-    print("\n=== LLM RESPONSE ===\n", llm_response)
+        return None
 
     semantic_sim = calculate_semantic_similarity(user_query, llm_response, model)
     
@@ -92,16 +94,53 @@ def main():
         "overall_score": overall_score
     }
 
-    generate_report(results)
-
+    # Create evaluation filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    eval_filename = f"eval_{Path(query_path).stem}_{timestamp}.txt"
+    eval_path = os.path.join(eval_dir, eval_filename)
+    
+    # Generate and save report
+    report = generate_report(results, eval_path)
+    
+    print(f"\nProcessed: {Path(query_path).name}")
+    print(f"Evaluation saved to: {eval_path}")
+    
     if overall_score < 0.5:
-        print("\nWARNING: Low overall score detected. Key issues:")
-        if semantic_sim < 0.3:
-            print("- Response doesn't address the query's core meaning")
-        if length_ratio > 5:
-            print("- Response may be too verbose")
-        if keyword_overlap < 0.2:
-            print("- Important keywords from query are missing")
+        print("WARNING: Low overall score detected")
+    
+    return results
+
+def main():
+    # Initialize model
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    # Configure paths
+    base_dir = Path(r"C:\Users\jayle\s25-nvidia\benchmarks\data")
+    queries_dir = base_dir / "queries"
+    responses_dir = base_dir / "responses"
+    evaluations_dir = base_dir / "evaluations"
+    
+    # Create evaluations directory if it doesn't exist
+    evaluations_dir.mkdir(exist_ok=True)
+    
+    # Get all query files
+    query_files = list(queries_dir.glob("*.txt"))
+    
+    if not query_files:
+        print(f"No query files found in {queries_dir}")
+        return
+    
+    # Process each query-response pair
+    for query_path in query_files:
+        # Find matching response file
+        response_filename = query_path.name.replace("user_query", "vta_response")
+        response_path = responses_dir / response_filename
+        
+        if not response_path.exists():
+            print(f"\nNo matching response found for {query_path.name}")
+            continue
+            
+        process_pair(query_path, response_path, model, evaluations_dir)
 
 if __name__ == "__main__":
     main()
