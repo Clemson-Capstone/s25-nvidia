@@ -834,7 +834,7 @@ async def generate_answer(request: Request, prompt: Prompt) -> StreamingResponse
 
         # pass the persona from the Prompt object into the chain settings
         # added by Capstone Team; Clemson Spring 2025
-        llm_settings["persona"] = prompt.persona
+        kwargs["persona"] = prompt.persona
         
         # pylint: disable=unreachable
         generator = None
