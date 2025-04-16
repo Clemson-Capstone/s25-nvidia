@@ -251,11 +251,11 @@ class Prompt(BaseModel):
         max_length=2048,
     )
 
-    # sets default as drill sergeant for clear, easy testing
+    # sets default persona as formal
     # added by Capstone Team; Clemson Spring 2025
     persona: str = Field(
-        default="drill_sergeant",
-        description="The personality of the assistant. Options: formal, casual, drill_sergeant."
+        default="formal",
+        description="The personality of the assistant. Options: formal, casual, drill_sergeant, enthusiastic, supportive, meme_lord, humorous"
     )
     
     # seed: int = Field(42, description="If specified, our system will make a best effort to sample deterministically,
