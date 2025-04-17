@@ -84,8 +84,11 @@ Use these procedures to deploy with Docker Compose for a single node deployment.
 This is the recommended deployment option using your NVIDIA API key to access cloud-hosted models.
 
 
-1. Verify that you meet the prerequisites & cd into the correct directory nvidia-rag-2.0
-
+1. Verify that you meet the prerequisites
+cd into the correct directory
+```bash
+cd nvidia-rag-2.0
+```
 2. Set the endpoint URLs for the NIMs:
 
    ```bash
@@ -158,7 +161,7 @@ pip install langchain-nvidia-ai-endpoints
 pip install langchain-unstructured
 ```
 
-7. Confirm all containers are running:
+7. Confirm all containers are running so far:
 
    ```bash
    docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}"
@@ -178,7 +181,90 @@ pip install langchain-unstructured
    nemo-guardrails-microservice            Up 5 minutes
    ```
 
-8. Open a web browser and access `http://localhost:8090` to use the RAG Playground, or go to `http://localhost:3000` to use the frontend for the canvas application. The RAG playground is more for testing the chatbot, and the frontend is for the canvas integration with the chatbot.
+
+8. Set up the canvas integration container (allow us to pull files from canvas):
+Go into the right path (s25-nvidia/course_manager_api)
+
+```bash
+cd course_manager_api
+```
+
+Build the docker environment (the api is containized using Docker)
+
+```bash
+# Build the image
+docker build -t course-manager-api .
+
+# Run the container
+docker run -d -p 8012:8012 -v $(pwd)/course_data:/app/course_data --name course-manager-api course-manager-api
+```
+
+9. Setting up the frontend (Next.js frontend component for the Virtual Teaching Assistant application.)
+   ### Running Locally
+
+1. cd into this frontend folder:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm i --legacy-peer-deps
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the application.
+
+### Building for Production
+
+To create a production build:
+
+```bash
+npm run build
+npm start
+```
+
+## Running with Docker
+
+This application includes a multi-stage Dockerfile to optimize build and runtime performance.
+
+1. Build the Docker image:
+   ```bash
+   docker build -t frontend .
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -p 3000:3000 frontend
+   ```
+
+3. Access the application at [http://localhost:3000](http://localhost:3000).
+
+## Backend Dependencies
+
+The frontend expects the following backend services to be running:
+
+- RAG Server at http://localhost:8081
+- Ingestion Server at http://localhost:8082
+- Canvas API Proxy at http://localhost:8012
+
+## Available Scripts
+
+- `npm run dev`: Run the development server with turbopack
+- `npm run build`: Build the application for production
+- `npm start`: Start the production server
+- `npm run lint`: Run ESLint for code quality
+
+
+
+
+
+
+10. Open a web browser and access `http://localhost:8090` to use the RAG Playground, or go to `http://localhost:3000` to use the frontend for the canvas application. The RAG playground is more for testing the chatbot, and the frontend is for the canvas integration with the chatbot.
 
 ### Option 2: Deploy with On-Premises Models
 
