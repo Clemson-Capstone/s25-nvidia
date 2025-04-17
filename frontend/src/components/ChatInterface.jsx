@@ -12,8 +12,7 @@ const ChatInterface = ({
   inputMessage,
   setInputMessage,
   handleSubmit,
-  isLoading,
-  ttsEnabled
+  isLoading
 }) => {
   const messagesEndRef = useRef(null);
   const [activeCitations, setActiveCitations] = useState(null);

@@ -25,136 +25,7 @@ import ChatSettings from '@/components/ChatSettings';
 import ChatInterface from '@/components/ChatInterface';
 import KnowledgeBase from '@/components/KnowledgeBase';
 
-// function for text-to-speech
-function speakText(text) {
-  if ('speechSynthesis' in window) {
-    // Clear existing speech and log the action
-    console.log("Cancelling any ongoing speech");
-    window.speechSynthesis.cancel();
-    
-    console.log("Starting text-to-speech for text:", text.substring(0, 50) + "...");
-    
-    // Create a new utterance
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Firefox needs a timeout to properly initialize speech synthesis
-    setTimeout(() => {
-      try {
-        // Get available voices
-        let voices = window.speechSynthesis.getVoices();
-        
-        // Log available voices for debugging
-        console.log(`Found ${voices.length} voices`);
-        
-        // In Firefox, voices might be available immediately
-        if (voices.length > 0) {
-          setupAndSpeak(voices);
-        } else {
-          // In Chrome, we may need to wait for voices to load
-          console.log("No voices available yet, waiting for voices to load");
-          
-          // Set up a listener for when voices are loaded (Chrome)
-          window.speechSynthesis.onvoiceschanged = () => {
-            voices = window.speechSynthesis.getVoices();
-            console.log(`Voices loaded, found ${voices.length} voices`);
-            setupAndSpeak(voices);
-          };
-          
-          // For browsers that don't trigger onvoiceschanged
-          setTimeout(() => {
-            if (utterance.voice === null) {
-              voices = window.speechSynthesis.getVoices();
-              console.log(`Checking voices again after timeout, found ${voices.length} voices`);
-              setupAndSpeak(voices);
-            }
-          }, 1000);
-        }
-        
-        function setupAndSpeak(availableVoices) {
-          if (availableVoices.length === 0) {
-            console.warn("No voices available, using default voice");
-          } else {
-            // Try to find a female voice that works well in various browsers
-            const preferredVoices = [
-              'Samantha', 'Google US English Female', 'Microsoft Zira', 
-              'Female', 'Google UK English Female'
-            ];
-            
-            let selectedVoice = null;
-            
-            // Try to find one of our preferred voices
-            for (const voiceName of preferredVoices) {
-              const voice = availableVoices.find(v => 
-                v.name.toLowerCase().includes(voiceName.toLowerCase())
-              );
-              if (voice) {
-                selectedVoice = voice;
-                break;
-              }
-            }
-            
-            // If no preferred voice found, try to find any English female voice
-            if (!selectedVoice) {
-              selectedVoice = availableVoices.find(v => 
-                v.lang.startsWith('en') && 
-                (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman'))
-              );
-            }
-            
-            // If still no voice found, just use the first English voice
-            if (!selectedVoice) {
-              selectedVoice = availableVoices.find(v => v.lang.startsWith('en'));
-            }
-            
-            // If we found a suitable voice, use it
-            if (selectedVoice) {
-              utterance.voice = selectedVoice;
-              console.log("Using voice:", selectedVoice.name, selectedVoice.lang);
-            } else {
-              console.warn("No suitable English voice found, using default");
-            }
-          }
-          
-          // Set up parameters
-          utterance.lang = 'en-US'; // Ensure English is used
-          utterance.pitch = 1;      // Normal pitch
-          utterance.rate = 1.1;     // Slightly faster than normal (1.4 can be too fast)
-          utterance.volume = 1;     // Full volume
-          
-          // Add event listeners for debugging
-          utterance.onstart = () => console.log("Speech started");
-          utterance.onend = () => console.log("Speech ended");
-          utterance.onerror = (e) => console.error("Speech error:", e);
-          
-          // Start speaking
-          console.log("Starting speech...");
-          window.speechSynthesis.speak(utterance);
-          
-          // Firefox bug workaround: speech can sometimes cut off
-          // This keeps the speech synthesis active
-          const timer = setInterval(() => {
-            if (!window.speechSynthesis.speaking) {
-              clearInterval(timer);
-              return;
-            }
-            window.speechSynthesis.pause();
-            window.speechSynthesis.resume();
-          }, 10000);
-        }
-      } catch (error) {
-        console.error("Error during speech synthesis:", error);
-      }
-    }, 100); // Small delay to ensure browser is ready
-  } else {
-    console.error('Speech synthesis not supported in this browser.');
-    alert('Speech synthesis is not supported in this browser. Please try Chrome or Edge.');
-  }
-}
-
-// Expose speakText globally
-if (typeof window !== 'undefined') {
-  window.speakText = speakText;
-}
+// TTS functionality removed as it's not working reliably across browsers
 
 // function for speech-to-text
 function startSpeechRecognition(setInputMessage) {
@@ -323,58 +194,7 @@ export default function ChatPage() {
     document.documentElement.classList.toggle("dark", isDarkMode);
   }, [isDarkMode]);
   
-  // Initialize speech synthesis voices when the component loads - client-side only
-  useEffect(() => {
-    // Only run this code on the client side to avoid hydration mismatch
-    let isLoaded = false;
-    
-    // Wrap in a function to handle async initialization
-    const initSpeechSynthesis = () => {
-      if (typeof window === 'undefined' || isLoaded) return;
-      
-      if ('speechSynthesis' in window) {
-        isLoaded = true;
-        
-        // Pre-load voices
-        const loadVoices = () => {
-          try {
-            const voices = window.speechSynthesis.getVoices();
-            console.log("Available voices:", voices.length);
-            if (voices.length > 0) {
-              const availableVoices = voices.map(voice => ({
-                name: voice.name,
-                lang: voice.lang,
-                default: voice.default
-              }));
-              console.log("Available voices:", availableVoices);
-            }
-          } catch (error) {
-            console.error("Error loading voices:", error);
-          }
-        };
-        
-        // Try loading voices with a small delay to ensure browser is ready
-        setTimeout(loadVoices, 100);
-        
-        // Also set up event listener for when voices are loaded
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-        
-        return () => {
-          // Clean up
-          window.speechSynthesis.onvoiceschanged = null;
-          // Cancel any ongoing speech when the component unmounts
-          try {
-            window.speechSynthesis.cancel();
-          } catch (error) {
-            console.error("Error cancelling speech:", error);
-          }
-        };
-      }
-    };
-    
-    // Call the initialization function after a small delay to ensure hydration is complete
-    setTimeout(initSpeechSynthesis, 500);
-  }, []);
+  // TTS initialization removed as the feature is not being used
 
   // Reset selected items when course content changes
   useEffect(() => {
@@ -1113,47 +933,8 @@ export default function ChatPage() {
           setMessages(updatedMessages);
           const lastMessage = updatedMessages[updatedMessages.length - 1];
           
-          // ALWAYS check the TTS setting first and log its value
-          console.log("TTS enabled setting:", ttsEnabled);
-          console.log("Last message role:", lastMessage?.role);
-          
-          // Handle text-to-speech if enabled
-          if (ttsEnabled && lastMessage && lastMessage.role === 'assistant') {
-            console.log("TTS criteria met, processing assistant message for speech");
-            // Extract text without citation markers for TTS
-            const textOnly = lastMessage.content.replace(/<cite[^>]*>|<\/cite>/g, '');
-            // Also remove any markdown formatting that might interfere with speech
-            const cleanedText = textOnly
-              .replace(/\*\*(.*?)\*\*/g, '$1') // Bold
-              .replace(/\*(.*?)\*/g, '$1')     // Italic
-              .replace(/`(.*?)`/g, '$1')       // Inline code
-              .replace(/```[\s\S]*?```/g, '')  // Code blocks
-              .replace(/#+\s+(.*?)\n/g, '$1. '); // Headers
-              
-            console.log("Speaking text:", cleanedText.substring(0, 50) + "...");
-            
-            // Use a timeout to ensure the UI has updated first
-            setTimeout(() => {
-              try {
-                if (window.speakText) {
-                  window.speakText(cleanedText);
-                } else {
-                  speakText(cleanedText);
-                }
-                console.log("Speech synthesis initiated successfully");
-              } catch (error) {
-                console.error("Error starting speech synthesis:", error);
-              }
-            }, 100);
-          } else {
-            if (!ttsEnabled) {
-              console.log("TTS is disabled in settings");
-            } else if (!lastMessage) {
-              console.log("No last message available");
-            } else if (lastMessage.role !== 'assistant') {
-              console.log("Last message is not from assistant, role:", lastMessage.role);
-            }
-          }
+          // TTS functionality disabled since it's not working reliably
+          // Just update the messages without speaking
         }
       );
 
@@ -1273,8 +1054,6 @@ export default function ChatPage() {
       <ChatSettings 
         useKnowledgeBase={useKnowledgeBase}
         setUseKnowledgeBase={setUseKnowledgeBase}
-        ttsEnabled={ttsEnabled}
-        setTTSEnabled={setTTSEnabled}
         isDarkMode={isDarkMode}
         setIsDarkMode={setIsDarkMode}
         persona={persona}
@@ -1352,7 +1131,6 @@ export default function ChatPage() {
               setInputMessage={setInputMessage}
               handleSubmit={handleSubmit}
               isLoading={isLoading}
-              ttsEnabled={ttsEnabled}
             />
           </TabsContent>
           

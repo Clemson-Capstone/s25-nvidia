@@ -22,8 +22,6 @@ import {
 const ChatSettings = ({
   useKnowledgeBase,
   setUseKnowledgeBase,
-  ttsEnabled,
-  setTTSEnabled,
   isDarkMode,
   setIsDarkMode,
   persona,
@@ -160,14 +158,7 @@ const ChatSettings = ({
                     />
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="tts-mode">Enable Text-to-Speech</Label>
-                    <Switch 
-                      id="tts-mode" 
-                      checked={ttsEnabled} 
-                      onCheckedChange={setTTSEnabled} 
-                    />
-                  </div>
+                  {/* TTS toggle removed as it's not working reliably across browsers */}
                 </div>
                 
                 <div className="space-y-4">
