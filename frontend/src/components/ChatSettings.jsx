@@ -173,20 +173,34 @@ const ChatSettings = ({
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="persona-select" className="mb-2 block">Select Persona:</Label>
-                    <Select value={persona} onValueChange={setPersona}>
-                      <SelectTrigger id="persona-select">
-                        <SelectValue placeholder="Select a persona" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="formal">Formal</SelectItem>
-                        <SelectItem value="casual">Casual</SelectItem>
-                        <SelectItem value="drill_sergeant">Drill Sergeant</SelectItem>
-                        <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
-                        <SelectItem value="supportive">Supportive</SelectItem>
-                        <SelectItem value="meme_lord">Meme Lord</SelectItem>
-                        <SelectItem value="humorous">Humorous</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {enableGuardrails && (
+                      <Alert className="mb-2 py-2 bg-yellow-50 border-yellow-200">
+                        <AlertDescription className="text-yellow-800 text-xs">
+                          Persona implementation allows for bypassing the guardrails in a way 
+                          not intended. Turn off guardrails to play with personas!
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <div className={enableGuardrails ? "opacity-50 cursor-not-allowed" : ""}>
+                      <Select 
+                        value={persona} 
+                        onValueChange={setPersona}
+                        disabled={enableGuardrails}
+                      >
+                        <SelectTrigger id="persona-select">
+                          <SelectValue placeholder="Select a persona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="formal">Formal</SelectItem>
+                          <SelectItem value="casual">Casual</SelectItem>
+                          <SelectItem value="drill_sergeant">Drill Sergeant</SelectItem>
+                          <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                          <SelectItem value="supportive">Supportive</SelectItem>
+                          <SelectItem value="meme_lord">Meme Lord</SelectItem>
+                          <SelectItem value="humorous">Humorous</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   
                   <Button
