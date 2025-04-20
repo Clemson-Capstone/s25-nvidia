@@ -25,5 +25,5 @@ define flow homework brainstormer
   user ask homework help
   bot homework guidance
   bot homework strategy
-  $ideas = execute homework_brainstorm()
+  $ideas = execute homework_brainstorm
   bot $ideas

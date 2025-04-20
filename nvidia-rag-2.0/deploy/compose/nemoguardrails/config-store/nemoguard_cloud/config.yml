@@ -12,9 +12,6 @@ models:
       base_url: https://integrate.api.nvidia.com/v1
 
 rails:
-  # Not sure if you can register the actions this way / I haven't done it this way so I'm assuming no
-  # actions:
-  #   quiz_response: actions.quiz_response
   input:
     flows:
       - content safety check input $model=content_safety

@@ -27,5 +27,5 @@ define user ask debug code
 
 define flow coding question 
   user ask debug code 
-  $answer = execute code_debug()
+  $answer = execute code_debug
   bot $answer

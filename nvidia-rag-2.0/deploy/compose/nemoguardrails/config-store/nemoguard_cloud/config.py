@@ -46,17 +46,9 @@ async def quiz_response(context: dict, llm: BaseLLM = None):
             Based on the following quiz question, DO NOT provide or hint at the correct answer.
             Instead, explain the underlying concepts to help understanding.
             
-            Question: {question}
-            
-            Format your response exactly as follows (preserve all newlines and spacing):
-            
-            Key Concept 1
-            
-            Key Concept 2
-            
-            Practical Application
-            
-            Brief explanation connecting the concepts.
+            Do NOT give the answer. Instead, explain the key concepts involved in a short and informative paragraph. Your response should help the student understand the *why* and *how* behind the question without solving it.
+
+            Keep the response concise, natural, and focused on clarification, like you're coaching the student through the thought process.
             """
             
             # Import the necessary modules
@@ -78,13 +70,14 @@ async def quiz_response(context: dict, llm: BaseLLM = None):
                 context_updates={}
             )
     except Exception as e:
-        logger.error(f"Error in code_debug: {e}")
+        logger.error(f"Error in quiz response: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return ActionResult(
-            return_value="I encountered an error while analyzing your code. Could you please provide more details about your issue?",
+            return_value="I encountered an error while generating the quiz response. Could you please provide more details about your issue?",
             context_updates={}
         )
+    
 
 @action(is_system_action=False)
 async def homework_brainstorm(context: dict, llm: BaseLLM = None):
@@ -135,7 +128,7 @@ async def homework_brainstorm(context: dict, llm: BaseLLM = None):
                 context_updates={}
             )
     except Exception as e:
-        logger.error(f"Error in code_debug: {e}")
+        logger.error(f"Error in homework_brainstorm: {e}")
         import traceback
         logger.error(traceback.format_exc())
         return ActionResult(
@@ -199,10 +192,37 @@ async def code_debug(context: dict, llm: BaseLLM = None):
             return_value="I encountered an error while analyzing your code. Could you please provide more details about your issue?",
             context_updates={}
         )
-    
 
-# This portion was how we initally initialized our python actions in rag 1.0
 
+
+# List of blocked (non-academic) keywords
+# BLOCKED_KEYWORDS = [
+#     "election", "politics", "religion", "opinion", "government", "president",
+#     "war", "economy", "racism", "gender", "news", "conspiracy"
+# ]
+
+# @action(is_system_action=False)
+# async def ta_response(context: dict, llm=None):
+#     logger.info("TA CONTEXT CHECK ACTION TRIGGERED")
+
+#     user_message = context.get("last_user_message", "").lower().strip()
+
+#     if not user_message:
+#         return ActionResult(
+#             return_value="Can you clarify your question? I'm here to help with course-related topics.",
+#             context_updates={}
+#         )
+
+#     if any(blocked in user_message for blocked in BLOCKED_KEYWORDS):
+#         return ActionResult(
+#             return_value="I am not allowed to respond to that, sorry (self_check_input hit)",
+#             context_updates={}
+#         )
+
+#     return ActionResult(
+#         return_value="Thanks for your question! Let me know if it's related to any course material, and I'll do my best to assist.",
+#         context_updates={}
+#     )
 
 def init(app):
     # Check if it's a FastAPI app or LLMRails
@@ -210,6 +230,7 @@ def init(app):
         app.register_action(quiz_response, "quiz_response")
         app.register_action(homework_brainstorm,"homework_brainstorm")
         app.register_action(code_debug, "code_debug")
+        # app.register_action(ta_response, "ta_response")
     else:
         # If it's a FastAPI app, you might need to initialize rails differently
         from nemoguardrails import LLMRails, RailsConfig
@@ -218,47 +239,7 @@ def init(app):
         rails.register_action(quiz_response, "quiz_response")
         rails.register_action(homework_brainstorm,"homework_brainstorm")
         rails.register_action(code_debug, "code_debug")
+        # rails.register_action(ta_response, "ta_response")
+    
 
 
-
-# @action(is_system_action=False)
-# async def quiz_response():
-#     logger.error(f"QUIZ RESPONSE ACTION TRIGGERED!")
-#     return "This is a test response from the quiz_response action."
-
-# # This portion was how we initally initialized our python actions in rag 1.0
-
-
-# def init(app):
-#     # Check if it's a FastAPI app or LLMRails
-#     if hasattr(app, "register_action"):
-#         app.register_action(quiz_response, "quiz_response")
-#     else:
-#         # If it's a FastAPI app, you might need to initialize rails differently
-#         from nemoguardrails import LLMRails, RailsConfig
-#         config = RailsConfig.from_path("/config-store/nemoguard_cloud")
-#         rails = LLMRails(config)
-#         rails.register_action(quiz_response, "quiz_response")
-        # Then attach rails to your FastAPI app somehow
-# @action
-# async def quiz_response(inputs: str):
-#     logger.error(f"QUIZ RESPONSE ACTION TRIGGERED!")
-#     print("Hello the aciton is working")
-#     return "This is a test response from the quiz_response action."
-
-# # This portion was how we initally initialized our python actions in rag 1.0
-
-
-
-# def init(llm_rails: LLMRails):
-
-#     # # Initialize rails config 
-#     config = RailsConfig.from_path("/config-store/nemoguard_cloud")
-#     # Create rails
-
-#     rails = LLMRails(config)
-
-#     rails.register_action(quiz_response, "quiz_response")
-
-    # Register the custom `retrieve_relevant_chunks` for custom retrieval
-    # llm_rails.register_action(quiz_response, "quiz_response")

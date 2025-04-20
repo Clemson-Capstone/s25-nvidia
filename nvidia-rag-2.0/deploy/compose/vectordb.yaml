@@ -8,7 +8,7 @@ services:
     environment:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9010
-      KNOWHERE_GPU_MEM_POOL_SIZE: 0 #Setting it to 0, but for GPU use 2048;4096
+      KNOWHERE_GPU_MEM_POOL_SIZE: 2048;4096 #Setting it to 0, but for GPU use 2048;4096
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/milvus:/var/lib/milvus
     healthcheck:
