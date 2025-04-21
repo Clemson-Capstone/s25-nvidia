@@ -92,6 +92,32 @@ const ChatInterface = ({
     <Card className="bg-card/80 backdrop-blur-sm border border-border">
       <CardContent className="p-6">
         <ScrollArea className="h-[600px] mb-4 pr-4">
+          {/* Display a welcome message */}
+          <div className="mb-4 text-left">
+            <div className="inline-block max-w-[80%] p-4 rounded-lg bg-card text-card-foreground border border-border shadow-sm">
+              <ReactMarkdown
+                components={{
+                  p: ({ node, ...props }) => <p className={markdownStyles.p} {...props} />,
+                  h1: ({ node, ...props }) => <h1 className={markdownStyles.h1} {...props} />,
+                  h2: ({ node, ...props }) => <h2 className={markdownStyles.h2} {...props} />,
+                  h3: ({ node, ...props }) => <h3 className={markdownStyles.h3} {...props} />,
+                  ul: ({ node, ...props }) => <ul className={markdownStyles.ul} {...props} />,
+                  ol: ({ node, ...props }) => <ol className={markdownStyles.ol} {...props} />,
+                  li: ({ node, ...props }) => <li className={markdownStyles.li} {...props} />,
+                  blockquote: ({ node, ...props }) => <blockquote className={markdownStyles.blockquote} {...props} />,
+                  code: ({ node, inline, ...props }) => 
+                    inline ? (
+                      <code className={markdownStyles.code} {...props} />
+                    ) : (
+                      <pre className={markdownStyles.pre}><code {...props} /></pre>
+                    ),
+                }}
+              >
+                Hello! I am Dori! A virtual assistant here to help you learn content. How can I assist you today?
+              </ReactMarkdown>
+            </div>
+          </div>
+
 
           {messages.map((message, index) => (
             <div
