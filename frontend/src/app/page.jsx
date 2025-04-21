@@ -710,6 +710,14 @@ export default function ChatPage() {
         </div>
       );
     }
+
+    if (courseContent.length === 0) {
+      return (
+        <div className="text-center p-8 bg-card text-card-foreground rounded-lg border border-border">
+          <p className="text-lg text-muted-foreground">There seem to be no files in this course. Please click "course structure" and use that for uploads</p>
+        </div>
+      );
+    }
     
     return (
       <div className="space-y-2">

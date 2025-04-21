@@ -764,7 +764,7 @@ async def get_courses(request: TokenRequest):
     finally:
         ACTIVE_REQUESTS.dec()
 
-@app.post("/download_course")
+@app.post("/download_course", response_model_exclude_none=True)
 async def download_course(request: DownloadCourseRequest):
     """
     Downloads course materials for a specific course
@@ -793,25 +793,100 @@ async def download_course(request: DownloadCourseRequest):
         user_id = request.user_id or str(client.user_id)
         print(f"[DOWNLOAD_COURSE] Using user_id: {user_id}")
         
-        # Create directory structure
-        course_dir = f"course_data/{user_id}/{course_id}"
-        print(f"[DOWNLOAD_COURSE] Creating directory: {course_dir}")
-        os.makedirs(course_dir, exist_ok=True)
+        # Create directory structure - check parent directory first
+        base_dir = "course_data"
+        user_dir = f"{base_dir}/{user_id}"
+        course_dir = f"{user_dir}/{course_id}"
+        
+        print(f"[DOWNLOAD_COURSE] Checking if base directory exists: {base_dir}")
+        if not os.path.exists(base_dir):
+            try:
+                print(f"[DOWNLOAD_COURSE] Creating base directory: {base_dir}")
+                os.mkdir(base_dir)
+                print(f"[DOWNLOAD_COURSE] Successfully created base directory: {base_dir}")
+            except PermissionError as pe:
+                print(f"[DOWNLOAD_COURSE] ERROR: Permission denied creating {base_dir}: {str(pe)}")
+                # Try to get more details about the permissions
+                try:
+                    import subprocess
+                    ls_output = subprocess.run(["ls", "-la"], capture_output=True, text=True)
+                    print(f"[DOWNLOAD_COURSE] Current directory listing: {ls_output.stdout}")
+                except Exception as ls_error:
+                    print(f"[DOWNLOAD_COURSE] Could not list directory: {str(ls_error)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Permission error: Cannot create required directory {base_dir}. Please check file system permissions.")
+            except Exception as e:
+                print(f"[DOWNLOAD_COURSE] ERROR creating base directory: {str(e)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Error creating directory {base_dir}: {str(e)}")
+        
+        # Now check and create user directory
+        print(f"[DOWNLOAD_COURSE] Checking if user directory exists: {user_dir}")
+        if not os.path.exists(user_dir):
+            try:
+                print(f"[DOWNLOAD_COURSE] Creating user directory: {user_dir}")
+                os.mkdir(user_dir)
+                print(f"[DOWNLOAD_COURSE] Successfully created user directory: {user_dir}")
+            except PermissionError as pe:
+                print(f"[DOWNLOAD_COURSE] ERROR: Permission denied creating {user_dir}: {str(pe)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Permission error: Cannot create required directory {user_dir}. Please check file system permissions.")
+            except Exception as e:
+                print(f"[DOWNLOAD_COURSE] ERROR creating user directory: {str(e)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Error creating directory {user_dir}: {str(e)}")
+        
+        # Finally create course directory
+        print(f"[DOWNLOAD_COURSE] Creating course directory: {course_dir}")
+        try:
+            os.makedirs(course_dir, exist_ok=True)
+            print(f"[DOWNLOAD_COURSE] Successfully created course directory: {course_dir}")
+        except PermissionError as pe:
+            print(f"[DOWNLOAD_COURSE] ERROR: Permission denied creating {course_dir}: {str(pe)}")
+            raise HTTPException(status_code=500, 
+                                detail=f"Permission error: Cannot create required directory {course_dir}. Please check file system permissions.")
+        except Exception as e:
+            print(f"[DOWNLOAD_COURSE] ERROR creating course directory: {str(e)}")
+            raise HTTPException(status_code=500, 
+                                detail=f"Error creating directory {course_dir}: {str(e)}")
         
         # Ensure the default collection exists
         print(f"[DOWNLOAD_COURSE] Ensuring default collection exists")
         await ensure_collection_exists("default")
         
-        # Get course info
+        # Get course info with timeout
         print(f"[DOWNLOAD_COURSE] Fetching course materials for course_id={course_id}")
         try:
+            # Add timeout tracking
+            import time
+            start_time = time.time()
+            max_time = 60  # 60 second timeout
+            
+            # Create a progress tracking variable
+            fetch_progress = "starting"
+            print(f"[DOWNLOAD_COURSE] Progress: {fetch_progress}")
+            
+            # Fetch course materials with progress tracking
+            fetch_progress = "getting_client"
+            course_materials = {}  # Initialize in case of early failure
+            
+            # Implement timeout tracking for get_course_materials
+            fetch_progress = "calling_get_course_materials"
             course_materials = client.get_course_materials(course_id)
+            fetch_progress = "get_course_materials_completed"
+            
+            # Check elapsed time
+            elapsed_time = time.time() - start_time
+            print(f"[DOWNLOAD_COURSE] Fetched course materials in {elapsed_time:.2f} seconds")
+            
+            # Handle None result
             if course_materials is None:
-                # Handle unexpected failure
                 print(f"[DOWNLOAD_COURSE] ERROR: get_course_materials returned None")
                 raise HTTPException(status_code=500, detail="Failed to retrieve course materials")
-                
+            
+            fetch_progress = "processing_materials"
             print(f"[DOWNLOAD_COURSE] Successfully retrieved course materials")
+            print(f"[DOWNLOAD_COURSE] Progress: {fetch_progress}")
             
             # Check for component errors
             components_with_errors = []
@@ -821,7 +896,7 @@ async def download_course(request: DownloadCourseRequest):
                 components_with_errors.append(f"files ({course_materials.get('files_error')})")
             if "pages_error" in course_materials:
                 # Only log non-404 errors for pages since some courses legitimately don't have pages
-                if not course_materials.get('pages_error').startswith("Pages feature not enabled"):
+                if not str(course_materials.get('pages_error', '')).startswith("Pages feature not enabled"):
                     components_with_errors.append(f"pages ({course_materials.get('pages_error')})")
             
             if components_with_errors:
@@ -834,15 +909,18 @@ async def download_course(request: DownloadCourseRequest):
             print(f"[DOWNLOAD_COURSE] Course contains: {modules_count} modules, {files_count} files, {pages_count} pages")
             
             # Initialize missing components to empty lists to avoid KeyError later
-            if "modules" not in course_materials:
-                course_materials["modules"] = []
-            if "files" not in course_materials:
-                course_materials["files"] = []
-            if "pages" not in course_materials:
-                course_materials["pages"] = []
+            for component in ["modules", "files", "pages", "assignments", "quizzes", "discussions"]:
+                if component not in course_materials:
+                    course_materials[component] = []
+                elif course_materials[component] is None:
+                    course_materials[component] = []
+            
+            fetch_progress = "materials_processed"
+            print(f"[DOWNLOAD_COURSE] Progress: {fetch_progress}")
             
         except Exception as cm_error:
             print(f"[DOWNLOAD_COURSE] ERROR fetching course materials: {str(cm_error)}")
+            print(f"[DOWNLOAD_COURSE] Progress when error occurred: {fetch_progress}")
             import traceback
             print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
             raise
@@ -850,115 +928,313 @@ async def download_course(request: DownloadCourseRequest):
         # Save course info
         print(f"[DOWNLOAD_COURSE] Saving course_info.json")
         try:
+            # Add progress tracking
+            save_progress = "starting"
+            print(f"[DOWNLOAD_COURSE] Save progress: {save_progress}")
+            
+            # Create a more robust course_info object
+            save_progress = "creating_json_object"
+            course_info = {
+                "course_id": course_id,
+                "user_id": user_id,
+                "timestamp": str(datetime.datetime.now()),
+                "modules": course_materials.get("modules", []),
+                "files": course_materials.get("files", []),
+                "pages": course_materials.get("pages", []),
+                "assignments": course_materials.get("assignments", []),
+                "quizzes": course_materials.get("quizzes", []),
+                "discussions": course_materials.get("discussions", [])
+            }
+            
+            # Verify JSON serialization works
+            save_progress = "testing_serialization"
+            try:
+                # Test serialization first to avoid partial file writes
+                json_string = json.dumps(course_info)
+                print(f"[DOWNLOAD_COURSE] JSON serialization successful, size: {len(json_string)} bytes")
+            except Exception as json_error:
+                print(f"[DOWNLOAD_COURSE] ERROR serializing course_info to JSON: {str(json_error)}")
+                raise
+            
+            # Actually write to file
+            save_progress = "writing_to_file"
             course_info_path = f"{course_dir}/course_info.json"
             with open(course_info_path, "w") as f:
-                json.dump(course_materials, f, indent=4)
-            print(f"[DOWNLOAD_COURSE] Successfully saved course_info.json, size: {os.path.getsize(course_info_path)} bytes")
+                json.dump(course_info, f, indent=4)
+            
+            # Verify file was written
+            save_progress = "verifying_file"
+            if os.path.exists(course_info_path):
+                file_size = os.path.getsize(course_info_path)
+                print(f"[DOWNLOAD_COURSE] Successfully saved course_info.json, size: {file_size} bytes")
+            else:
+                print(f"[DOWNLOAD_COURSE] WARNING: course_info.json was not created at {course_info_path}")
+                
         except Exception as save_error:
             print(f"[DOWNLOAD_COURSE] ERROR saving course_info.json: {str(save_error)}")
+            print(f"[DOWNLOAD_COURSE] Save progress when error occurred: {save_progress}")
             import traceback
             print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
             raise
         
         # Create file list
         print(f"[DOWNLOAD_COURSE] Creating file list")
-        file_list = []
-        total_size = 0
-        files_with_url = 0
-        files_missing_url = 0
-        
-        # Make sure files exist in course_materials
-        if "files" not in course_materials or course_materials["files"] is None:
-            print(f"[DOWNLOAD_COURSE] No files found in course materials, initializing empty file list")
-            course_materials["files"] = []
-        
-        # Debug output for files
-        for i, file_info in enumerate(course_materials.get("files", [])):
-            # Skip None or invalid entries
-            if file_info is None:
-                print(f"[DOWNLOAD_COURSE] WARNING: File {i} is None, skipping")
-                continue
-                
-            # Check if this is a valid file object with needed attributes
-            if not isinstance(file_info, dict):
-                print(f"[DOWNLOAD_COURSE] WARNING: File {i} is not a dict: {type(file_info)}, skipping")
-                continue
-            
-            has_url = "url" in file_info
-            if has_url:
-                files_with_url += 1
-            else:
-                files_missing_url += 1
-                print(f"[DOWNLOAD_COURSE] WARNING: File {i} missing URL: {file_info.get('display_name', 'unknown')}")
-                
-            # Log file info for debugging
-            if i < 5 or not has_url:  # Log first 5 files and any without URL
-                print(f"[DOWNLOAD_COURSE] File {i}: name='{file_info.get('display_name', 'unknown')}', "
-                     f"has_url={has_url}, size={file_info.get('size', 0)}, "
-                     f"content-type={file_info.get('content-type', 'unknown')}")
-            
-            # Only include files with URLs
-            if has_url:
-                try:
-                    # Try to create a valid file record
-                    display_name = file_info.get('display_name', f"file_{i}")
-                    # Create a safe file path
-                    file_path = f"{course_dir}/files/{display_name}"
-                    file_size = int(file_info.get("size", 0))
-                    total_size += file_size
-                    
-                    if file_size > 0:
-                        FILE_SIZES.observe(file_size)
-                    
-                    file_list.append({
-                        "name": display_name,
-                        "path": file_path,
-                        "type": file_info.get("content-type", ""),
-                        "size": file_size,
-                        "url": file_info.get("url", ""),
-                        "id": file_info.get("id", "")
-                    })
-                except Exception as file_error:
-                    print(f"[DOWNLOAD_COURSE] ERROR processing file {i}: {str(file_error)}")
-        
-        # Handle empty file list
-        if len(file_list) == 0:
-            print(f"[DOWNLOAD_COURSE] WARNING: No valid files found with URLs. Creating empty file_list.json")
-        
-        print(f"[DOWNLOAD_COURSE] File stats: {len(file_list)} total files, {files_with_url} with URL, {files_missing_url} missing URL")
-        print(f"[DOWNLOAD_COURSE] Total file size: {total_size} bytes")
-        
-        # Create files directory even if there are no files
-        os.makedirs(f"{course_dir}/files", exist_ok=True)
-        
-        # Save file list
-        print(f"[DOWNLOAD_COURSE] Saving file_list.json")
         try:
+            # Add progress tracking
+            files_progress = "starting"
+            print(f"[DOWNLOAD_COURSE] Files progress: {files_progress}")
+            
+            file_list = []
+            total_size = 0
+            files_with_url = 0
+            files_missing_url = 0
+            
+            # Make sure files exist in course_materials
+            files_progress = "checking_files_exist"
+            if "files" not in course_materials or course_materials["files"] is None:
+                print(f"[DOWNLOAD_COURSE] No files found in course materials, initializing empty file list")
+                course_materials["files"] = []
+            
+            # Debug output for files
+            files_progress = "processing_files"
+            print(f"[DOWNLOAD_COURSE] Processing {len(course_materials.get('files', []))} files")
+            
+            # Process files in batches to avoid timeouts
+            batch_size = 50
+            files_list = course_materials.get("files", [])
+            total_files = len(files_list)
+            
+            for batch_start in range(0, total_files, batch_size):
+                batch_end = min(batch_start + batch_size, total_files)
+                print(f"[DOWNLOAD_COURSE] Processing files batch {batch_start}-{batch_end} of {total_files}")
+                
+                for i in range(batch_start, batch_end):
+                    file_info = files_list[i]
+                    
+                    # Skip None or invalid entries
+                    if file_info is None:
+                        print(f"[DOWNLOAD_COURSE] WARNING: File {i} is None, skipping")
+                        continue
+                        
+                    # Check if this is a valid file object with needed attributes
+                    if not isinstance(file_info, dict):
+                        print(f"[DOWNLOAD_COURSE] WARNING: File {i} is not a dict: {type(file_info)}, skipping")
+                        continue
+                    
+                    has_url = "url" in file_info
+                    if has_url:
+                        files_with_url += 1
+                    else:
+                        files_missing_url += 1
+                        print(f"[DOWNLOAD_COURSE] WARNING: File {i} missing URL: {file_info.get('display_name', 'unknown')}")
+                        
+                    # Log file info for debugging
+                    if i < 5 or not has_url:  # Log first 5 files and any without URL
+                        print(f"[DOWNLOAD_COURSE] File {i}: name='{file_info.get('display_name', 'unknown')}', "
+                             f"has_url={has_url}, size={file_info.get('size', 0)}, "
+                             f"content-type={file_info.get('content-type', 'unknown')}")
+                    
+                    # Only include files with URLs
+                    if has_url:
+                        try:
+                            # Try to create a valid file record
+                            display_name = file_info.get('display_name', f"file_{i}")
+                            # Create a safe file path
+                            file_path = f"{course_dir}/files/{display_name}"
+                            file_size = int(file_info.get("size", 0))
+                            total_size += file_size
+                            
+                            if file_size > 0:
+                                FILE_SIZES.observe(file_size)
+                            
+                            file_list.append({
+                                "name": display_name,
+                                "path": file_path,
+                                "type": file_info.get("content-type", ""),
+                                "size": file_size,
+                                "url": file_info.get("url", ""),
+                                "id": file_info.get("id", "")
+                            })
+                        except Exception as file_error:
+                            print(f"[DOWNLOAD_COURSE] ERROR processing file {i}: {str(file_error)}")
+            
+            # Handle empty file list
+            files_progress = "finalizing_file_list"
+            if len(file_list) == 0:
+                print(f"[DOWNLOAD_COURSE] WARNING: No valid files found with URLs. Creating empty file_list.json")
+            
+            print(f"[DOWNLOAD_COURSE] File stats: {len(file_list)} total files, {files_with_url} with URL, {files_missing_url} missing URL")
+            print(f"[DOWNLOAD_COURSE] Total file size: {total_size} bytes")
+            
+            # Create files directory even if there are no files
+            files_progress = "creating_files_directory"
+            os.makedirs(f"{course_dir}/files", exist_ok=True)
+            
+            # Save file list
+            files_progress = "saving_file_list"
+            print(f"[DOWNLOAD_COURSE] Saving file_list.json")
             file_list_path = f"{course_dir}/file_list.json"
+            
+            # Test JSON serialization before writing
+            try:
+                # Test serialization
+                files_progress = "testing_file_list_json"
+                json_string = json.dumps(file_list)
+                print(f"[DOWNLOAD_COURSE] File list JSON serialization successful, size: {len(json_string)} bytes")
+            except Exception as json_error:
+                print(f"[DOWNLOAD_COURSE] ERROR serializing file_list to JSON: {str(json_error)}")
+                # Try to create a simplified version
+                file_list = [{"name": f.get("name", "unknown"), "id": f.get("id", "")} for f in file_list]
+                print(f"[DOWNLOAD_COURSE] Created simplified file list with {len(file_list)} entries")
+            
+            # Write to file
+            files_progress = "writing_file_list"
             with open(file_list_path, "w") as f:
                 json.dump(file_list, f, indent=4)
-            print(f"[DOWNLOAD_COURSE] Successfully saved file_list.json, size: {os.path.getsize(file_list_path)} bytes")
+            
+            # Verify file was created
+            files_progress = "verifying_file_list"
+            if os.path.exists(file_list_path):
+                file_size = os.path.getsize(file_list_path)
+                print(f"[DOWNLOAD_COURSE] Successfully saved file_list.json, size: {file_size} bytes")
+            else:
+                print(f"[DOWNLOAD_COURSE] WARNING: file_list.json was not created")
+            
+            files_progress = "completed"
+            
         except Exception as save_error:
-            print(f"[DOWNLOAD_COURSE] ERROR saving file_list.json: {str(save_error)}")
+            print(f"[DOWNLOAD_COURSE] ERROR processing file list: {str(save_error)}")
+            print(f"[DOWNLOAD_COURSE] Files progress when error occurred: {files_progress}")
             import traceback
             print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
-            raise
+            
+            # Try to save a minimal file list to avoid complete failure
+            print(f"[DOWNLOAD_COURSE] Attempting to save minimal file_list.json")
+            try:
+                minimal_file_list = []
+                file_list_path = f"{course_dir}/file_list.json"
+                with open(file_list_path, "w") as f:
+                    json.dump(minimal_file_list, f)
+                print(f"[DOWNLOAD_COURSE] Saved minimal file_list.json as fallback")
+            except Exception as minimal_error:
+                print(f"[DOWNLOAD_COURSE] Could not save minimal file list: {str(minimal_error)}")
+        
+        # Add completion tracking
+        completion_progress = "finalizing"
+        print(f"[DOWNLOAD_COURSE] Finalizing course download, progress: {completion_progress}")
         
         # Record metrics
         print(f"[DOWNLOAD_COURSE] Incrementing download counter for course_id={course_id}")
         COURSE_DOWNLOADS.labels(course_id=str(course_id)).inc()
         
+        # Create a status file to indicate completion
+        completion_progress = "creating_status_file"
+        status_file_path = f"{course_dir}/download_complete.txt"
+        try:
+            with open(status_file_path, "w") as f:
+                f.write(f"Download completed: {datetime.datetime.now().isoformat()}")
+            print(f"[DOWNLOAD_COURSE] Created status file: {status_file_path}")
+        except Exception as status_error:
+            print(f"[DOWNLOAD_COURSE] Warning: Could not create status file: {str(status_error)}")
+        
+        completion_progress = "completed"
         print(f"[DOWNLOAD_COURSE] Course {course_id} processed successfully")
+        
         return {
             "message": f"Course {course_id} processed successfully",
-            "user_id": user_id  # Return the user_id that was used
+            "user_id": user_id,  # Return the user_id that was used
+            "course_dir": course_dir,  # Return the directory where the course was saved
+            "status": "complete",
+            "files_count": len(file_list),
+            "modules_count": len(course_materials.get("modules", [])),
+            "pages_count": len(course_materials.get("pages", []))
         }
+    except PermissionError as pe:
+        print(f"[DOWNLOAD_COURSE] PERMISSION ERROR processing course {course_id}: {str(pe)}")
+        import traceback
+        print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+        
+        # Try to diagnose file system issues
+        try:
+            import subprocess
+            print("[DOWNLOAD_COURSE] Checking directory permissions:")
+            subprocess.run(["ls", "-la"], check=False)
+            if os.path.exists("course_data"):
+                subprocess.run(["ls", "-la", "course_data"], check=False)
+            print("[DOWNLOAD_COURSE] Checking current user and group:")
+            subprocess.run(["id"], check=False)
+            print("[DOWNLOAD_COURSE] Checking disk space:")
+            subprocess.run(["df", "-h"], check=False)
+        except Exception as diagnosis_error:
+            print(f"[DOWNLOAD_COURSE] Could not diagnose file system: {str(diagnosis_error)}")
+        
+        raise HTTPException(
+            status_code=500, 
+            detail="Permission denied while creating required directories. The application may not have write access to the file system. Please contact the administrator."
+        )
+    except json.JSONDecodeError as je:
+        print(f"[DOWNLOAD_COURSE] JSON ERROR processing course {course_id}: {str(je)}")
+        import traceback
+        print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+        
+        # Try to create minimal valid JSON files
+        try:
+            # Create directory structure if it doesn't exist
+            os.makedirs(course_dir, exist_ok=True)
+            os.makedirs(f"{course_dir}/files", exist_ok=True)
+            
+            # Save minimal course info
+            with open(f"{course_dir}/course_info.json", "w") as f:
+                json.dump({"course_id": course_id, "error": str(je)}, f)
+                
+            # Save minimal file list
+            with open(f"{course_dir}/file_list.json", "w") as f:
+                json.dump([], f)
+                
+            print(f"[DOWNLOAD_COURSE] Created minimal JSON files as fallback")
+            
+            return {
+                "message": f"Course {course_id} processed with errors (JSON serialization failed)",
+                "user_id": user_id,
+                "course_dir": course_dir,
+                "status": "error",
+                "error": str(je)
+            }
+        except Exception as recovery_error:
+            print(f"[DOWNLOAD_COURSE] Failed to create fallback files: {str(recovery_error)}")
+            raise HTTPException(status_code=500, 
+                              detail=f"JSON processing error: {str(je)}. Recovery attempt also failed.")
     except Exception as e:
         print(f"[DOWNLOAD_COURSE] FATAL ERROR processing course {course_id}: {str(e)}")
         import traceback
         print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+        
+        # Try to respond with as much context as possible
+        error_response = {
+            "status": "error",
+            "message": f"Error processing course {course_id}",
+            "error_type": type(e).__name__,
+            "error_details": str(e)
+        }
+        
+        # Try to create a status file in the course directory if it exists
+        if 'course_dir' in locals() and os.path.exists(course_dir):
+            try:
+                with open(f"{course_dir}/download_error.txt", "w") as f:
+                    f.write(f"Download error at {datetime.datetime.now().isoformat()}: {str(e)}")
+                error_response["course_dir"] = course_dir
+            except:
+                pass
+        
+        # Return a 500 with detailed error info
+        raise HTTPException(status_code=500, detail=error_response)
     finally:
+        # Time the entire operation
+        if 'start_time' in locals():
+            end_time = time.time()
+            total_time = end_time - start_time
+            print(f"[DOWNLOAD_COURSE] Total processing time: {total_time:.2f} seconds")
+        
         # Decrement active requests
         ACTIVE_REQUESTS.dec()
         print(f"[DOWNLOAD_COURSE] Finished request for course_id={course_id}")
@@ -1606,10 +1882,32 @@ async def metrics_health():
     """
     Simple health check endpoint for monitoring
     """
+    # Check if the course_data directory exists and is writable
+    base_dir = "course_data"
+    directory_exists = os.path.exists(base_dir)
+    directory_writable = False
+    
+    if directory_exists:
+        try:
+            test_file_path = os.path.join(base_dir, "write_test.txt")
+            with open(test_file_path, "w") as f:
+                f.write("write test")
+            os.remove(test_file_path)
+            directory_writable = True
+        except Exception as e:
+            directory_writable = False
+            print(f"[HEALTH] Warning: course_data directory is not writable: {str(e)}")
+    
+    status = "ok" if directory_exists and directory_writable else "degraded"
+    
     return {
-        "status": "ok",
+        "status": status,
         "service": "course_data_manager",
-        "timestamp": str(datetime.datetime.now())
+        "timestamp": str(datetime.datetime.now()),
+        "directory_status": {
+            "course_data_exists": directory_exists,
+            "course_data_writable": directory_writable
+        }
     }
 
 @app.get("/metrics/stats")
@@ -1649,6 +1947,49 @@ async def metrics_stats():
 async def index():
     return {"message": "Course Data Manager API is running"}
 
+# Function to ensure course_data directory exists and is writable
+def ensure_data_directories():
+    """Ensure that the course_data directory exists and is writable"""
+    base_dir = "course_data"
+    print(f"[STARTUP] Checking if base directory exists: {base_dir}")
+    
+    # Check if the directory exists
+    if not os.path.exists(base_dir):
+        try:
+            print(f"[STARTUP] Creating base directory: {base_dir}")
+            os.mkdir(base_dir)
+            print(f"[STARTUP] Successfully created base directory: {base_dir}")
+        except Exception as e:
+            print(f"[STARTUP] ERROR creating base directory: {str(e)}")
+            print("[STARTUP] *** WARNING: Course data directory does not exist and cannot be created! ***")
+            print("[STARTUP] *** The application may not function correctly. ***")
+            return False
+    
+    # Check if the directory is writable
+    test_file_path = os.path.join(base_dir, "write_test.txt")
+    try:
+        with open(test_file_path, "w") as f:
+            f.write("write test")
+        os.remove(test_file_path)
+        print(f"[STARTUP] Base directory {base_dir} is writable")
+        return True
+    except Exception as e:
+        print(f"[STARTUP] ERROR: Base directory {base_dir} is not writable: {str(e)}")
+        print("[STARTUP] *** WARNING: Course data directory is not writable! ***")
+        print("[STARTUP] *** The application may not function correctly. ***")
+        
+        # Try to diagnose permission issues
+        try:
+            import subprocess
+            print("[STARTUP] Checking directory permissions:")
+            subprocess.run(["ls", "-la", base_dir], check=False)
+            print("[STARTUP] Checking current user and group:")
+            subprocess.run(["id"], check=False)
+        except Exception as diagnosis_error:
+            print(f"[STARTUP] Could not diagnose permissions: {str(diagnosis_error)}")
+        
+        return False
+
 if __name__ == "__main__":
     # Print configuration information
     print("=" * 80)
@@ -1658,6 +1999,11 @@ if __name__ == "__main__":
     print(f"- Image Captioning: Enabled")
     print(f"- VLM Caption Endpoint: {os.environ.get('VLM_CAPTION_ENDPOINT')}")
     print("=" * 80)
+    
+    # Check if the course_data directory exists and is writable
+    data_dir_ok = ensure_data_directories()
+    if not data_dir_ok:
+        print("[STARTUP] WARNING: Data directory issues might prevent course downloads")
     
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8012, reload=True)
