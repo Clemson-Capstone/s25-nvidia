@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -39,6 +39,46 @@ const ChatSettings = ({
 }) => {
   const [activeTab, setActiveTab] = useState('general');
   const [validationErrors, setValidationErrors] = useState({});
+  const [guardrailsToggleEnabled, setGuardrailsToggleEnabled] = useState(true);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimeoutRef = useRef(null);
+  
+  // Check environment variable on client-side
+  useEffect(() => {
+    // Read the environment variable from Next.js
+    const envValue = process.env.NEXT_PUBLIC_ENABLE_GUARDRAILS_TOGGLE;
+    setGuardrailsToggleEnabled(envValue === 'true');
+  }, []);
+  
+  // Clean up any tooltip timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  const handleGuardrailsHover = (isHovering) => {
+    if (!guardrailsToggleEnabled) {
+      // Clear any existing timeout
+      if (tooltipTimeoutRef.current) {
+        clearTimeout(tooltipTimeoutRef.current);
+      }
+      
+      if (isHovering) {
+        // Small delay before showing the tooltip for better UX
+        tooltipTimeoutRef.current = setTimeout(() => {
+          setShowTooltip(true);
+        }, 200);
+      } else {
+        // Hide tooltip with a small delay when mouse leaves
+        tooltipTimeoutRef.current = setTimeout(() => {
+          setShowTooltip(false);
+        }, 300);
+      }
+    }
+  };
   
   // Input validation
   const validateTemperature = (value) => {
@@ -151,11 +191,24 @@ const ChatSettings = ({
                   
                   <div className="flex items-center justify-between">
                     <Label htmlFor="guardrails">Enable Guardrails</Label>
-                    <Switch 
-                      id="guardrails" 
-                      checked={enableGuardrails} 
-                      onCheckedChange={setEnableGuardrails} 
-                    />
+                    <div 
+                      className="relative" 
+                      onMouseEnter={() => handleGuardrailsHover(true)}
+                      onMouseLeave={() => handleGuardrailsHover(false)}
+                    >
+                      {!guardrailsToggleEnabled && showTooltip && (
+                        <div className="absolute right-0 bottom-full mb-2 bg-card p-2 rounded shadow-md text-xs text-muted-foreground w-52 border border-border z-10 whitespace-normal">
+                          reference guardrails_toggle.md to enable this toggle
+                          <div className="absolute right-2 -bottom-1 w-2 h-2 bg-card rotate-45 border-r border-b border-border"></div>
+                        </div>
+                      )}
+                      <Switch 
+                        id="guardrails" 
+                        checked={enableGuardrails} 
+                        onCheckedChange={guardrailsToggleEnabled ? setEnableGuardrails : undefined}
+                        className={!guardrailsToggleEnabled ? "opacity-60 hover:opacity-70 cursor-not-allowed" : ""}
+                      />
+                    </div>
                   </div>
                   
                   {/* TTS toggle removed as it's not working reliably across browsers */}

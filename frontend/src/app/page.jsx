@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from 'next/image'
 
 import CanvasIntegration from '@/components/CanvasIntegration';
 import ChatSettings from '@/components/ChatSettings';
@@ -70,7 +71,9 @@ if (typeof window !== 'undefined') {
 
 export default function ChatPage() {
   // State variables
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "Hello! I am Dori! A virtual assistant here to help you learn content. How can I assist you today?" }
+  ]);
   const [documents, setDocuments] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
@@ -707,6 +710,14 @@ export default function ChatPage() {
         </div>
       );
     }
+
+    if (courseContent.length === 0) {
+      return (
+        <div className="text-center p-8 bg-card text-card-foreground rounded-lg border border-border">
+          <p className="text-lg text-muted-foreground">There seem to be no files in this course. Please click "course structure" and use that for uploads</p>
+        </div>
+      );
+    }
     
     return (
       <div className="space-y-2">
@@ -1026,10 +1037,18 @@ export default function ChatPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-4">
       {/* Title */}
-      <div className="max-w-4xl mx-auto mb-6 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent"> 
-          Virtual Teaching Assistant
-        </h1>
+      <div className="flex max-w-4xl mx-auto mb-6 items-center justify-center gap-4">
+        <Image src="/logo.png" width={100} height={100} alt="Logo" />
+        <p className="text-8xl font-ubuntu bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent"> 
+          DORI
+        </p>
+      </div>
+
+      {/* Tagline */}
+      <div className="flex max-w-4xl mx-auto mb-6 items-center justify-center gap-4">
+        <p className="text-2xl font-ubuntu text-muted-foreground">
+          A virtual assistant to help you learn content
+        </p>
       </div>
 
       {/* Canvas Integration */}

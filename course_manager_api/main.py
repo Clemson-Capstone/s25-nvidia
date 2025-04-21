@@ -134,22 +134,48 @@ class UploadSelectedToRAGRequest(BaseModel):
 
 class CanvasClient:
     def __init__(self, token):
+        print("[CANVAS_CLIENT] Initializing CanvasClient")
         self.token = token
         self.base_url = "https://clemson.instructure.com/api/v1"
         self.headers = {
             "Authorization": f"Bearer {token}"
         }
+        print(f"[CANVAS_CLIENT] Base URL: {self.base_url}")
+        print(f"[CANVAS_CLIENT] Token length: {len(token)}")
+        print(f"[CANVAS_CLIENT] Headers: {self.headers}")
+        
         # Get and cache user ID
+        print("[CANVAS_CLIENT] Getting user ID")
         self.user_id = self._get_user_id()
+        print(f"[CANVAS_CLIENT] User ID obtained: {self.user_id}")
     
     def _get_user_id(self):
         """Get the user ID for the current user"""
         url = f"{self.base_url}/users/self"
-        response = requests.get(url, headers=self.headers)
-        if response.status_code != 200:
-            raise Exception(f"Failed to get user info: {response.text}")
-        user_data = response.json()
-        return user_data.get("id")
+        print(f"[CANVAS_CLIENT] Fetching user info from: {url}")
+        
+        try:
+            response = requests.get(url, headers=self.headers)
+            print(f"[CANVAS_CLIENT] User info response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                error_text = response.text
+                print(f"[CANVAS_CLIENT] Failed to get user info: {error_text}")
+                raise Exception(f"Failed to get user info: {error_text}")
+            
+            user_data = response.json()
+            print(f"[CANVAS_CLIENT] User data keys: {list(user_data.keys())}")
+            user_id = user_data.get("id")
+            
+            if not user_id:
+                print(f"[CANVAS_CLIENT] WARNING: No user ID found in response: {user_data}")
+            
+            return user_id
+        except Exception as e:
+            print(f"[CANVAS_CLIENT] EXCEPTION in _get_user_id: {str(e)}")
+            import traceback
+            print(f"[CANVAS_CLIENT] Traceback: {traceback.format_exc()}")
+            raise
     
     def get_courses(self):
         """Get all courses for the authenticated user"""
@@ -158,46 +184,281 @@ class CanvasClient:
             "enrollment_state": "active",
             "per_page": 100
         }
-        response = requests.get(url, headers=self.headers, params=params)
-        if response.status_code != 200:
-            raise Exception(f"Failed to get courses: {response.text}")
-        return response.json()
+        print(f"[CANVAS_CLIENT] Fetching courses from: {url} with params: {params}")
+        
+        try:
+            response = requests.get(url, headers=self.headers, params=params)
+            print(f"[CANVAS_CLIENT] Courses response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                error_text = response.text
+                print(f"[CANVAS_CLIENT] Failed to get courses: {error_text}")
+                raise Exception(f"Failed to get courses: {error_text}")
+            
+            courses = response.json()
+            print(f"[CANVAS_CLIENT] Retrieved {len(courses)} courses")
+            return courses
+        except Exception as e:
+            print(f"[CANVAS_CLIENT] EXCEPTION in get_courses: {str(e)}")
+            import traceback
+            print(f"[CANVAS_CLIENT] Traceback: {traceback.format_exc()}")
+            raise
     
     def get_course_materials(self, course_id):
         """Get materials for a specific course"""
-        # Get modules
-        modules_url = f"{self.base_url}/courses/{course_id}/modules"
-        params = {
-            "include": ["items"],
-            "per_page": 100
-        }
-        modules_response = requests.get(modules_url, headers=self.headers, params=params)
-        if modules_response.status_code != 200:
-            raise Exception(f"Failed to get modules: {modules_response.text}")
+        print(f"[CANVAS_CLIENT] Starting get_course_materials for course_id={course_id}")
+        result = {}
         
-        # Get files
-        files_url = f"{self.base_url}/courses/{course_id}/files"
-        files_params = {
-            "per_page": 100
-        }
-        files_response = requests.get(files_url, headers=self.headers, params=files_params)
-        if files_response.status_code != 200:
-            raise Exception(f"Failed to get files: {files_response.text}")
-        
-        # Get pages
-        pages_url = f"{self.base_url}/courses/{course_id}/pages"
-        pages_params = {
-            "per_page": 100
-        }
-        pages_response = requests.get(pages_url, headers=self.headers, params=pages_params)
-        if pages_response.status_code != 200:
-            raise Exception(f"Failed to get pages: {pages_response.text}")
-        
-        return {
-            "modules": modules_response.json(),
-            "files": files_response.json(),
-            "pages": pages_response.json()
-        }
+        try:
+            # Get modules
+            modules_url = f"{self.base_url}/courses/{course_id}/modules"
+            params = {
+                "include": ["items"],
+                "per_page": 100
+            }
+            print(f"[CANVAS_CLIENT] Fetching modules from: {modules_url} with params: {params}")
+            
+            try:
+                modules_response = requests.get(modules_url, headers=self.headers, params=params)
+                print(f"[CANVAS_CLIENT] Modules response status: {modules_response.status_code}")
+                
+                if modules_response.status_code == 200:
+                    modules_data = modules_response.json()
+                    print(f"[CANVAS_CLIENT] Retrieved {len(modules_data)} modules")
+                    
+                    # Log module structure to understand what we're getting
+                    if len(modules_data) > 0:
+                        sample_module = modules_data[0]
+                        print(f"[CANVAS_CLIENT] Sample module keys: {list(sample_module.keys())}")
+                        
+                        # Log items in the first module for debugging
+                        if 'items' in sample_module and len(sample_module['items']) > 0:
+                            print(f"[CANVAS_CLIENT] Module contains {len(sample_module['items'])} items")
+                            sample_item = sample_module['items'][0]
+                            print(f"[CANVAS_CLIENT] Sample module item keys: {list(sample_item.keys())}")
+                            print(f"[CANVAS_CLIENT] Sample module item: {sample_item}")
+                    
+                    result["modules"] = modules_data
+                else:
+                    error_text = modules_response.text
+                    print(f"[CANVAS_CLIENT] Failed to get modules: {error_text}")
+                    # Continue with other API calls but record the error
+                    result["modules"] = []
+                    result["modules_error"] = f"Status code: {modules_response.status_code}, Error: {error_text}"
+            except Exception as modules_error:
+                print(f"[CANVAS_CLIENT] ERROR fetching modules: {str(modules_error)}")
+                import traceback
+                print(f"[CANVAS_CLIENT] Modules traceback: {traceback.format_exc()}")
+                # Continue with other API calls but record the error
+                result["modules"] = []
+                result["modules_error"] = str(modules_error)
+            
+            # Get files
+            files_url = f"{self.base_url}/courses/{course_id}/files"
+            files_params = {
+                "per_page": 100
+            }
+            print(f"[CANVAS_CLIENT] Fetching files from: {files_url} with params: {files_params}")
+            
+            try:
+                files_response = requests.get(files_url, headers=self.headers, params=files_params)
+                print(f"[CANVAS_CLIENT] Files response status: {files_response.status_code}")
+                
+                if files_response.status_code == 200:
+                    files_data = files_response.json()
+                    print(f"[CANVAS_CLIENT] Retrieved {len(files_data)} files")
+                    
+                    # Log file structure
+                    if len(files_data) > 0:
+                        sample_file = files_data[0]
+                        print(f"[CANVAS_CLIENT] Sample file keys: {list(sample_file.keys())}")
+                        print(f"[CANVAS_CLIENT] Sample file: id={sample_file.get('id')}, name={sample_file.get('display_name')}, type={sample_file.get('content-type')}")
+                        print(f"[CANVAS_CLIENT] Sample file has URL: {'url' in sample_file}")
+                    
+                    result["files"] = files_data
+                else:
+                    error_text = files_response.text
+                    print(f"[CANVAS_CLIENT] Failed to get files: {error_text}")
+                    # Continue with other API calls but record the error
+                    result["files"] = []
+                    result["files_error"] = f"Status code: {files_response.status_code}, Error: {error_text}"
+            except Exception as files_error:
+                print(f"[CANVAS_CLIENT] ERROR fetching files: {str(files_error)}")
+                import traceback
+                print(f"[CANVAS_CLIENT] Files traceback: {traceback.format_exc()}")
+                # Continue with other API calls but record the error
+                result["files"] = []
+                result["files_error"] = str(files_error)
+            
+            # Get pages - THIS IS WHERE THE ISSUE MIGHT BE WITH COURSES THAT DON'T HAVE PAGES
+            pages_url = f"{self.base_url}/courses/{course_id}/pages"
+            pages_params = {
+                "per_page": 100
+            }
+            print(f"[CANVAS_CLIENT] Fetching pages from: {pages_url} with params: {pages_params}")
+            
+            try:
+                pages_response = requests.get(pages_url, headers=self.headers, params=pages_params)
+                pages_status = pages_response.status_code
+                print(f"[CANVAS_CLIENT] Pages response status: {pages_status}")
+                
+                # Check specifically for no pages, which might return 404 or empty list
+                if pages_status == 200:
+                    pages_data = pages_response.json()
+                    print(f"[CANVAS_CLIENT] Retrieved {len(pages_data)} pages")
+                    
+                    # Log page structure
+                    if len(pages_data) > 0:
+                        sample_page = pages_data[0]
+                        print(f"[CANVAS_CLIENT] Sample page keys: {list(sample_page.keys())}")
+                    
+                    result["pages"] = pages_data
+                elif pages_status == 404:
+                    # This course doesn't have pages feature enabled
+                    print(f"[CANVAS_CLIENT] Pages feature not enabled for this course (404)")
+                    result["pages"] = []
+                    result["pages_error"] = "Pages feature not enabled for this course"
+                else:
+                    error_text = pages_response.text
+                    print(f"[CANVAS_CLIENT] Failed to get pages: {error_text}")
+                    # Continue with other API calls but record the error
+                    result["pages"] = []
+                    result["pages_error"] = f"Status code: {pages_status}, Error: {error_text}"
+            except Exception as pages_error:
+                print(f"[CANVAS_CLIENT] ERROR fetching pages: {str(pages_error)}")
+                import traceback
+                print(f"[CANVAS_CLIENT] Pages traceback: {traceback.format_exc()}")
+                # Continue with other API calls but record the error
+                result["pages"] = []
+                result["pages_error"] = str(pages_error)
+            
+            # Try to get assignments as well
+            assignments_url = f"{self.base_url}/courses/{course_id}/assignments"
+            assignments_params = {
+                "per_page": 100
+            }
+            print(f"[CANVAS_CLIENT] Fetching assignments from: {assignments_url} with params: {assignments_params}")
+            
+            try:
+                assignments_response = requests.get(assignments_url, headers=self.headers, params=assignments_params)
+                assignments_status = assignments_response.status_code
+                print(f"[CANVAS_CLIENT] Assignments response status: {assignments_status}")
+                
+                if assignments_status == 200:
+                    assignments_data = assignments_response.json()
+                    print(f"[CANVAS_CLIENT] Retrieved {len(assignments_data)} assignments")
+                    result["assignments"] = assignments_data
+                elif assignments_status == 401:
+                    # Unauthorized - maybe the course is inactive or user doesn't have access
+                    print(f"[CANVAS_CLIENT] Unauthorized access to assignments (401)")
+                    result["assignments"] = []
+                    result["assignments_error"] = "Unauthorized access to assignments"
+                elif assignments_status == 404:
+                    # This course doesn't have assignments feature enabled
+                    print(f"[CANVAS_CLIENT] Assignments feature not enabled for this course (404)")
+                    result["assignments"] = []
+                    result["assignments_error"] = "Assignments feature not enabled for this course"
+                else:
+                    error_text = assignments_response.text
+                    print(f"[CANVAS_CLIENT] Failed to get assignments: {error_text}")
+                    # Continue with other API calls but record the error
+                    result["assignments"] = []
+                    result["assignments_error"] = f"Status code: {assignments_status}, Error: {error_text}"
+            except Exception as assignments_error:
+                print(f"[CANVAS_CLIENT] ERROR fetching assignments: {str(assignments_error)}")
+                import traceback
+                print(f"[CANVAS_CLIENT] Assignments traceback: {traceback.format_exc()}")
+                result["assignments"] = []
+                result["assignments_error"] = str(assignments_error)
+            
+            # Try to get quizzes as well
+            quizzes_url = f"{self.base_url}/courses/{course_id}/quizzes"
+            quizzes_params = {
+                "per_page": 100
+            }
+            print(f"[CANVAS_CLIENT] Fetching quizzes from: {quizzes_url} with params: {quizzes_params}")
+            
+            try:
+                quizzes_response = requests.get(quizzes_url, headers=self.headers, params=quizzes_params)
+                quizzes_status = quizzes_response.status_code
+                print(f"[CANVAS_CLIENT] Quizzes response status: {quizzes_status}")
+                
+                if quizzes_status == 200:
+                    quizzes_data = quizzes_response.json()
+                    print(f"[CANVAS_CLIENT] Retrieved {len(quizzes_data)} quizzes")
+                    result["quizzes"] = quizzes_data
+                elif quizzes_status == 401:
+                    # Unauthorized - maybe the course is inactive or user doesn't have access
+                    print(f"[CANVAS_CLIENT] Unauthorized access to quizzes (401)")
+                    result["quizzes"] = []
+                    result["quizzes_error"] = "Unauthorized access to quizzes"
+                elif quizzes_status == 404:
+                    # This course doesn't have quizzes feature enabled
+                    print(f"[CANVAS_CLIENT] Quizzes feature not enabled for this course (404)")
+                    result["quizzes"] = []
+                    result["quizzes_error"] = "Quizzes feature not enabled for this course"
+                else:
+                    error_text = quizzes_response.text
+                    print(f"[CANVAS_CLIENT] Failed to get quizzes: {error_text}")
+                    # Continue with other API calls but record the error
+                    result["quizzes"] = []
+                    result["quizzes_error"] = f"Status code: {quizzes_status}, Error: {error_text}"
+            except Exception as quizzes_error:
+                print(f"[CANVAS_CLIENT] ERROR fetching quizzes: {str(quizzes_error)}")
+                import traceback
+                print(f"[CANVAS_CLIENT] Quizzes traceback: {traceback.format_exc()}")
+                result["quizzes"] = []
+                result["quizzes_error"] = str(quizzes_error)
+            
+            # Try to get discussion topics as well (another common Canvas component)
+            discussions_url = f"{self.base_url}/courses/{course_id}/discussion_topics"
+            discussions_params = {
+                "per_page": 100
+            }
+            print(f"[CANVAS_CLIENT] Fetching discussion topics from: {discussions_url} with params: {discussions_params}")
+            
+            try:
+                discussions_response = requests.get(discussions_url, headers=self.headers, params=discussions_params)
+                discussions_status = discussions_response.status_code
+                print(f"[CANVAS_CLIENT] Discussions response status: {discussions_status}")
+                
+                if discussions_status == 200:
+                    discussions_data = discussions_response.json()
+                    print(f"[CANVAS_CLIENT] Retrieved {len(discussions_data)} discussion topics")
+                    result["discussions"] = discussions_data
+                elif discussions_status in [401, 403, 404]:
+                    # This course might not have discussions enabled or accessible
+                    print(f"[CANVAS_CLIENT] Discussions feature not available: {discussions_status}")
+                    result["discussions"] = []
+                    result["discussions_error"] = f"Discussions feature not available: {discussions_status}"
+                else:
+                    error_text = discussions_response.text
+                    print(f"[CANVAS_CLIENT] Failed to get discussions: {error_text}")
+                    result["discussions"] = []
+                    result["discussions_error"] = f"Status code: {discussions_status}, Error: {error_text}"
+            except Exception as discussions_error:
+                print(f"[CANVAS_CLIENT] ERROR fetching discussions: {str(discussions_error)}")
+                result["discussions"] = []
+                result["discussions_error"] = str(discussions_error)
+            
+            print(f"[CANVAS_CLIENT] Completed get_course_materials for course_id={course_id}")
+            # Return the result even if some components failed
+            return result
+            
+        except Exception as e:
+            print(f"[CANVAS_CLIENT] FATAL ERROR in get_course_materials: {str(e)}")
+            import traceback
+            print(f"[CANVAS_CLIENT] Traceback: {traceback.format_exc()}")
+            # Create minimal valid result rather than failing completely
+            return {
+                "modules": [],
+                "files": [],
+                "pages": [],
+                "assignments": [],
+                "quizzes": [],
+                "discussions": [],
+                "fatal_error": str(e)
+            }
 
     def download_file(self, file_url, save_path):
         """Download a file from Canvas"""
@@ -503,7 +764,7 @@ async def get_courses(request: TokenRequest):
     finally:
         ACTIVE_REQUESTS.dec()
 
-@app.post("/download_course")
+@app.post("/download_course", response_model_exclude_none=True)
 async def download_course(request: DownloadCourseRequest):
     """
     Downloads course materials for a specific course
@@ -521,61 +782,462 @@ async def download_course(request: DownloadCourseRequest):
     # Increment active requests
     ACTIVE_REQUESTS.inc()
     
+    # Start logging information
+    print(f"[DOWNLOAD_COURSE] Starting download for course_id={course_id}")
+    
     try:
+        print(f"[DOWNLOAD_COURSE] Creating CanvasClient with token length: {len(token)}")
         client = CanvasClient(token)
+        
         # Use the user_id from request if provided, otherwise use the one from the Canvas client
         user_id = request.user_id or str(client.user_id)
+        print(f"[DOWNLOAD_COURSE] Using user_id: {user_id}")
         
-        # Create directory structure
-        course_dir = f"course_data/{user_id}/{course_id}"
-        os.makedirs(course_dir, exist_ok=True)
+        # Create directory structure - check parent directory first
+        base_dir = "course_data"
+        user_dir = f"{base_dir}/{user_id}"
+        course_dir = f"{user_dir}/{course_id}"
+        
+        print(f"[DOWNLOAD_COURSE] Checking if base directory exists: {base_dir}")
+        if not os.path.exists(base_dir):
+            try:
+                print(f"[DOWNLOAD_COURSE] Creating base directory: {base_dir}")
+                os.mkdir(base_dir)
+                print(f"[DOWNLOAD_COURSE] Successfully created base directory: {base_dir}")
+            except PermissionError as pe:
+                print(f"[DOWNLOAD_COURSE] ERROR: Permission denied creating {base_dir}: {str(pe)}")
+                # Try to get more details about the permissions
+                try:
+                    import subprocess
+                    ls_output = subprocess.run(["ls", "-la"], capture_output=True, text=True)
+                    print(f"[DOWNLOAD_COURSE] Current directory listing: {ls_output.stdout}")
+                except Exception as ls_error:
+                    print(f"[DOWNLOAD_COURSE] Could not list directory: {str(ls_error)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Permission error: Cannot create required directory {base_dir}. Please check file system permissions.")
+            except Exception as e:
+                print(f"[DOWNLOAD_COURSE] ERROR creating base directory: {str(e)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Error creating directory {base_dir}: {str(e)}")
+        
+        # Now check and create user directory
+        print(f"[DOWNLOAD_COURSE] Checking if user directory exists: {user_dir}")
+        if not os.path.exists(user_dir):
+            try:
+                print(f"[DOWNLOAD_COURSE] Creating user directory: {user_dir}")
+                os.mkdir(user_dir)
+                print(f"[DOWNLOAD_COURSE] Successfully created user directory: {user_dir}")
+            except PermissionError as pe:
+                print(f"[DOWNLOAD_COURSE] ERROR: Permission denied creating {user_dir}: {str(pe)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Permission error: Cannot create required directory {user_dir}. Please check file system permissions.")
+            except Exception as e:
+                print(f"[DOWNLOAD_COURSE] ERROR creating user directory: {str(e)}")
+                raise HTTPException(status_code=500, 
+                                    detail=f"Error creating directory {user_dir}: {str(e)}")
+        
+        # Finally create course directory
+        print(f"[DOWNLOAD_COURSE] Creating course directory: {course_dir}")
+        try:
+            os.makedirs(course_dir, exist_ok=True)
+            print(f"[DOWNLOAD_COURSE] Successfully created course directory: {course_dir}")
+        except PermissionError as pe:
+            print(f"[DOWNLOAD_COURSE] ERROR: Permission denied creating {course_dir}: {str(pe)}")
+            raise HTTPException(status_code=500, 
+                                detail=f"Permission error: Cannot create required directory {course_dir}. Please check file system permissions.")
+        except Exception as e:
+            print(f"[DOWNLOAD_COURSE] ERROR creating course directory: {str(e)}")
+            raise HTTPException(status_code=500, 
+                                detail=f"Error creating directory {course_dir}: {str(e)}")
         
         # Ensure the default collection exists
+        print(f"[DOWNLOAD_COURSE] Ensuring default collection exists")
         await ensure_collection_exists("default")
         
-        # Get course info
-        course_materials = client.get_course_materials(course_id)
+        # Get course info with timeout
+        print(f"[DOWNLOAD_COURSE] Fetching course materials for course_id={course_id}")
+        try:
+            # Add timeout tracking
+            import time
+            start_time = time.time()
+            max_time = 60  # 60 second timeout
+            
+            # Create a progress tracking variable
+            fetch_progress = "starting"
+            print(f"[DOWNLOAD_COURSE] Progress: {fetch_progress}")
+            
+            # Fetch course materials with progress tracking
+            fetch_progress = "getting_client"
+            course_materials = {}  # Initialize in case of early failure
+            
+            # Implement timeout tracking for get_course_materials
+            fetch_progress = "calling_get_course_materials"
+            course_materials = client.get_course_materials(course_id)
+            fetch_progress = "get_course_materials_completed"
+            
+            # Check elapsed time
+            elapsed_time = time.time() - start_time
+            print(f"[DOWNLOAD_COURSE] Fetched course materials in {elapsed_time:.2f} seconds")
+            
+            # Handle None result
+            if course_materials is None:
+                print(f"[DOWNLOAD_COURSE] ERROR: get_course_materials returned None")
+                raise HTTPException(status_code=500, detail="Failed to retrieve course materials")
+            
+            fetch_progress = "processing_materials"
+            print(f"[DOWNLOAD_COURSE] Successfully retrieved course materials")
+            print(f"[DOWNLOAD_COURSE] Progress: {fetch_progress}")
+            
+            # Check for component errors
+            components_with_errors = []
+            if "modules_error" in course_materials:
+                components_with_errors.append(f"modules ({course_materials.get('modules_error')})")
+            if "files_error" in course_materials:
+                components_with_errors.append(f"files ({course_materials.get('files_error')})")
+            if "pages_error" in course_materials:
+                # Only log non-404 errors for pages since some courses legitimately don't have pages
+                if not str(course_materials.get('pages_error', '')).startswith("Pages feature not enabled"):
+                    components_with_errors.append(f"pages ({course_materials.get('pages_error')})")
+            
+            if components_with_errors:
+                print(f"[DOWNLOAD_COURSE] WARNING: Some components had errors: {', '.join(components_with_errors)}")
+            
+            # Log some basic stats about what we received
+            modules_count = len(course_materials.get("modules", []))
+            files_count = len(course_materials.get("files", []))
+            pages_count = len(course_materials.get("pages", []))
+            print(f"[DOWNLOAD_COURSE] Course contains: {modules_count} modules, {files_count} files, {pages_count} pages")
+            
+            # Initialize missing components to empty lists to avoid KeyError later
+            for component in ["modules", "files", "pages", "assignments", "quizzes", "discussions"]:
+                if component not in course_materials:
+                    course_materials[component] = []
+                elif course_materials[component] is None:
+                    course_materials[component] = []
+            
+            fetch_progress = "materials_processed"
+            print(f"[DOWNLOAD_COURSE] Progress: {fetch_progress}")
+            
+        except Exception as cm_error:
+            print(f"[DOWNLOAD_COURSE] ERROR fetching course materials: {str(cm_error)}")
+            print(f"[DOWNLOAD_COURSE] Progress when error occurred: {fetch_progress}")
+            import traceback
+            print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+            raise
         
         # Save course info
-        with open(f"{course_dir}/course_info.json", "w") as f:
-            json.dump(course_materials, f, indent=4)
+        print(f"[DOWNLOAD_COURSE] Saving course_info.json")
+        try:
+            # Add progress tracking
+            save_progress = "starting"
+            print(f"[DOWNLOAD_COURSE] Save progress: {save_progress}")
+            
+            # Create a more robust course_info object
+            save_progress = "creating_json_object"
+            course_info = {
+                "course_id": course_id,
+                "user_id": user_id,
+                "timestamp": str(datetime.datetime.now()),
+                "modules": course_materials.get("modules", []),
+                "files": course_materials.get("files", []),
+                "pages": course_materials.get("pages", []),
+                "assignments": course_materials.get("assignments", []),
+                "quizzes": course_materials.get("quizzes", []),
+                "discussions": course_materials.get("discussions", [])
+            }
+            
+            # Verify JSON serialization works
+            save_progress = "testing_serialization"
+            try:
+                # Test serialization first to avoid partial file writes
+                json_string = json.dumps(course_info)
+                print(f"[DOWNLOAD_COURSE] JSON serialization successful, size: {len(json_string)} bytes")
+            except Exception as json_error:
+                print(f"[DOWNLOAD_COURSE] ERROR serializing course_info to JSON: {str(json_error)}")
+                raise
+            
+            # Actually write to file
+            save_progress = "writing_to_file"
+            course_info_path = f"{course_dir}/course_info.json"
+            with open(course_info_path, "w") as f:
+                json.dump(course_info, f, indent=4)
+            
+            # Verify file was written
+            save_progress = "verifying_file"
+            if os.path.exists(course_info_path):
+                file_size = os.path.getsize(course_info_path)
+                print(f"[DOWNLOAD_COURSE] Successfully saved course_info.json, size: {file_size} bytes")
+            else:
+                print(f"[DOWNLOAD_COURSE] WARNING: course_info.json was not created at {course_info_path}")
+                
+        except Exception as save_error:
+            print(f"[DOWNLOAD_COURSE] ERROR saving course_info.json: {str(save_error)}")
+            print(f"[DOWNLOAD_COURSE] Save progress when error occurred: {save_progress}")
+            import traceback
+            print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+            raise
         
         # Create file list
-        file_list = []
-        total_size = 0
-        for file_info in course_materials.get("files", []):
-            if "url" in file_info:
-                file_path = f"{course_dir}/files/{file_info.get('display_name', 'unknown')}"
-                file_size = file_info.get("size", 0)
-                total_size += file_size
+        print(f"[DOWNLOAD_COURSE] Creating file list")
+        try:
+            # Add progress tracking
+            files_progress = "starting"
+            print(f"[DOWNLOAD_COURSE] Files progress: {files_progress}")
+            
+            file_list = []
+            total_size = 0
+            files_with_url = 0
+            files_missing_url = 0
+            
+            # Make sure files exist in course_materials
+            files_progress = "checking_files_exist"
+            if "files" not in course_materials or course_materials["files"] is None:
+                print(f"[DOWNLOAD_COURSE] No files found in course materials, initializing empty file list")
+                course_materials["files"] = []
+            
+            # Debug output for files
+            files_progress = "processing_files"
+            print(f"[DOWNLOAD_COURSE] Processing {len(course_materials.get('files', []))} files")
+            
+            # Process files in batches to avoid timeouts
+            batch_size = 50
+            files_list = course_materials.get("files", [])
+            total_files = len(files_list)
+            
+            for batch_start in range(0, total_files, batch_size):
+                batch_end = min(batch_start + batch_size, total_files)
+                print(f"[DOWNLOAD_COURSE] Processing files batch {batch_start}-{batch_end} of {total_files}")
                 
-                if file_size > 0:
-                    FILE_SIZES.observe(file_size)
-                
-                file_list.append({
-                    "name": file_info.get("display_name", ""),
-                    "path": file_path,
-                    "type": file_info.get("content-type", ""),
-                    "size": file_size,
-                    "url": file_info.get("url", "")
-                })
+                for i in range(batch_start, batch_end):
+                    file_info = files_list[i]
+                    
+                    # Skip None or invalid entries
+                    if file_info is None:
+                        print(f"[DOWNLOAD_COURSE] WARNING: File {i} is None, skipping")
+                        continue
+                        
+                    # Check if this is a valid file object with needed attributes
+                    if not isinstance(file_info, dict):
+                        print(f"[DOWNLOAD_COURSE] WARNING: File {i} is not a dict: {type(file_info)}, skipping")
+                        continue
+                    
+                    has_url = "url" in file_info
+                    if has_url:
+                        files_with_url += 1
+                    else:
+                        files_missing_url += 1
+                        print(f"[DOWNLOAD_COURSE] WARNING: File {i} missing URL: {file_info.get('display_name', 'unknown')}")
+                        
+                    # Log file info for debugging
+                    if i < 5 or not has_url:  # Log first 5 files and any without URL
+                        print(f"[DOWNLOAD_COURSE] File {i}: name='{file_info.get('display_name', 'unknown')}', "
+                             f"has_url={has_url}, size={file_info.get('size', 0)}, "
+                             f"content-type={file_info.get('content-type', 'unknown')}")
+                    
+                    # Only include files with URLs
+                    if has_url:
+                        try:
+                            # Try to create a valid file record
+                            display_name = file_info.get('display_name', f"file_{i}")
+                            # Create a safe file path
+                            file_path = f"{course_dir}/files/{display_name}"
+                            file_size = int(file_info.get("size", 0))
+                            total_size += file_size
+                            
+                            if file_size > 0:
+                                FILE_SIZES.observe(file_size)
+                            
+                            file_list.append({
+                                "name": display_name,
+                                "path": file_path,
+                                "type": file_info.get("content-type", ""),
+                                "size": file_size,
+                                "url": file_info.get("url", ""),
+                                "id": file_info.get("id", "")
+                            })
+                        except Exception as file_error:
+                            print(f"[DOWNLOAD_COURSE] ERROR processing file {i}: {str(file_error)}")
+            
+            # Handle empty file list
+            files_progress = "finalizing_file_list"
+            if len(file_list) == 0:
+                print(f"[DOWNLOAD_COURSE] WARNING: No valid files found with URLs. Creating empty file_list.json")
+            
+            print(f"[DOWNLOAD_COURSE] File stats: {len(file_list)} total files, {files_with_url} with URL, {files_missing_url} missing URL")
+            print(f"[DOWNLOAD_COURSE] Total file size: {total_size} bytes")
+            
+            # Create files directory even if there are no files
+            files_progress = "creating_files_directory"
+            os.makedirs(f"{course_dir}/files", exist_ok=True)
+            
+            # Save file list
+            files_progress = "saving_file_list"
+            print(f"[DOWNLOAD_COURSE] Saving file_list.json")
+            file_list_path = f"{course_dir}/file_list.json"
+            
+            # Test JSON serialization before writing
+            try:
+                # Test serialization
+                files_progress = "testing_file_list_json"
+                json_string = json.dumps(file_list)
+                print(f"[DOWNLOAD_COURSE] File list JSON serialization successful, size: {len(json_string)} bytes")
+            except Exception as json_error:
+                print(f"[DOWNLOAD_COURSE] ERROR serializing file_list to JSON: {str(json_error)}")
+                # Try to create a simplified version
+                file_list = [{"name": f.get("name", "unknown"), "id": f.get("id", "")} for f in file_list]
+                print(f"[DOWNLOAD_COURSE] Created simplified file list with {len(file_list)} entries")
+            
+            # Write to file
+            files_progress = "writing_file_list"
+            with open(file_list_path, "w") as f:
+                json.dump(file_list, f, indent=4)
+            
+            # Verify file was created
+            files_progress = "verifying_file_list"
+            if os.path.exists(file_list_path):
+                file_size = os.path.getsize(file_list_path)
+                print(f"[DOWNLOAD_COURSE] Successfully saved file_list.json, size: {file_size} bytes")
+            else:
+                print(f"[DOWNLOAD_COURSE] WARNING: file_list.json was not created")
+            
+            files_progress = "completed"
+            
+        except Exception as save_error:
+            print(f"[DOWNLOAD_COURSE] ERROR processing file list: {str(save_error)}")
+            print(f"[DOWNLOAD_COURSE] Files progress when error occurred: {files_progress}")
+            import traceback
+            print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+            
+            # Try to save a minimal file list to avoid complete failure
+            print(f"[DOWNLOAD_COURSE] Attempting to save minimal file_list.json")
+            try:
+                minimal_file_list = []
+                file_list_path = f"{course_dir}/file_list.json"
+                with open(file_list_path, "w") as f:
+                    json.dump(minimal_file_list, f)
+                print(f"[DOWNLOAD_COURSE] Saved minimal file_list.json as fallback")
+            except Exception as minimal_error:
+                print(f"[DOWNLOAD_COURSE] Could not save minimal file list: {str(minimal_error)}")
         
-        # Save file list
-        with open(f"{course_dir}/file_list.json", "w") as f:
-            json.dump(file_list, f, indent=4)
+        # Add completion tracking
+        completion_progress = "finalizing"
+        print(f"[DOWNLOAD_COURSE] Finalizing course download, progress: {completion_progress}")
         
         # Record metrics
+        print(f"[DOWNLOAD_COURSE] Incrementing download counter for course_id={course_id}")
         COURSE_DOWNLOADS.labels(course_id=str(course_id)).inc()
-            
+        
+        # Create a status file to indicate completion
+        completion_progress = "creating_status_file"
+        status_file_path = f"{course_dir}/download_complete.txt"
+        try:
+            with open(status_file_path, "w") as f:
+                f.write(f"Download completed: {datetime.datetime.now().isoformat()}")
+            print(f"[DOWNLOAD_COURSE] Created status file: {status_file_path}")
+        except Exception as status_error:
+            print(f"[DOWNLOAD_COURSE] Warning: Could not create status file: {str(status_error)}")
+        
+        completion_progress = "completed"
+        print(f"[DOWNLOAD_COURSE] Course {course_id} processed successfully")
+        
         return {
             "message": f"Course {course_id} processed successfully",
-            "user_id": user_id  # Return the user_id that was used
+            "user_id": user_id,  # Return the user_id that was used
+            "course_dir": course_dir,  # Return the directory where the course was saved
+            "status": "complete",
+            "files_count": len(file_list),
+            "modules_count": len(course_materials.get("modules", [])),
+            "pages_count": len(course_materials.get("pages", []))
         }
+    except PermissionError as pe:
+        print(f"[DOWNLOAD_COURSE] PERMISSION ERROR processing course {course_id}: {str(pe)}")
+        import traceback
+        print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+        
+        # Try to diagnose file system issues
+        try:
+            import subprocess
+            print("[DOWNLOAD_COURSE] Checking directory permissions:")
+            subprocess.run(["ls", "-la"], check=False)
+            if os.path.exists("course_data"):
+                subprocess.run(["ls", "-la", "course_data"], check=False)
+            print("[DOWNLOAD_COURSE] Checking current user and group:")
+            subprocess.run(["id"], check=False)
+            print("[DOWNLOAD_COURSE] Checking disk space:")
+            subprocess.run(["df", "-h"], check=False)
+        except Exception as diagnosis_error:
+            print(f"[DOWNLOAD_COURSE] Could not diagnose file system: {str(diagnosis_error)}")
+        
+        raise HTTPException(
+            status_code=500, 
+            detail="Permission denied while creating required directories. The application may not have write access to the file system. Please contact the administrator."
+        )
+    except json.JSONDecodeError as je:
+        print(f"[DOWNLOAD_COURSE] JSON ERROR processing course {course_id}: {str(je)}")
+        import traceback
+        print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+        
+        # Try to create minimal valid JSON files
+        try:
+            # Create directory structure if it doesn't exist
+            os.makedirs(course_dir, exist_ok=True)
+            os.makedirs(f"{course_dir}/files", exist_ok=True)
+            
+            # Save minimal course info
+            with open(f"{course_dir}/course_info.json", "w") as f:
+                json.dump({"course_id": course_id, "error": str(je)}, f)
+                
+            # Save minimal file list
+            with open(f"{course_dir}/file_list.json", "w") as f:
+                json.dump([], f)
+                
+            print(f"[DOWNLOAD_COURSE] Created minimal JSON files as fallback")
+            
+            return {
+                "message": f"Course {course_id} processed with errors (JSON serialization failed)",
+                "user_id": user_id,
+                "course_dir": course_dir,
+                "status": "error",
+                "error": str(je)
+            }
+        except Exception as recovery_error:
+            print(f"[DOWNLOAD_COURSE] Failed to create fallback files: {str(recovery_error)}")
+            raise HTTPException(status_code=500, 
+                              detail=f"JSON processing error: {str(je)}. Recovery attempt also failed.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[DOWNLOAD_COURSE] FATAL ERROR processing course {course_id}: {str(e)}")
+        import traceback
+        print(f"[DOWNLOAD_COURSE] Traceback: {traceback.format_exc()}")
+        
+        # Try to respond with as much context as possible
+        error_response = {
+            "status": "error",
+            "message": f"Error processing course {course_id}",
+            "error_type": type(e).__name__,
+            "error_details": str(e)
+        }
+        
+        # Try to create a status file in the course directory if it exists
+        if 'course_dir' in locals() and os.path.exists(course_dir):
+            try:
+                with open(f"{course_dir}/download_error.txt", "w") as f:
+                    f.write(f"Download error at {datetime.datetime.now().isoformat()}: {str(e)}")
+                error_response["course_dir"] = course_dir
+            except:
+                pass
+        
+        # Return a 500 with detailed error info
+        raise HTTPException(status_code=500, detail=error_response)
     finally:
+        # Time the entire operation
+        if 'start_time' in locals():
+            end_time = time.time()
+            total_time = end_time - start_time
+            print(f"[DOWNLOAD_COURSE] Total processing time: {total_time:.2f} seconds")
+        
         # Decrement active requests
         ACTIVE_REQUESTS.dec()
+        print(f"[DOWNLOAD_COURSE] Finished request for course_id={course_id}")
 
 @app.post("/get_documents")
 async def get_documents(request: GetDocumentsRequest):
@@ -1220,10 +1882,32 @@ async def metrics_health():
     """
     Simple health check endpoint for monitoring
     """
+    # Check if the course_data directory exists and is writable
+    base_dir = "course_data"
+    directory_exists = os.path.exists(base_dir)
+    directory_writable = False
+    
+    if directory_exists:
+        try:
+            test_file_path = os.path.join(base_dir, "write_test.txt")
+            with open(test_file_path, "w") as f:
+                f.write("write test")
+            os.remove(test_file_path)
+            directory_writable = True
+        except Exception as e:
+            directory_writable = False
+            print(f"[HEALTH] Warning: course_data directory is not writable: {str(e)}")
+    
+    status = "ok" if directory_exists and directory_writable else "degraded"
+    
     return {
-        "status": "ok",
+        "status": status,
         "service": "course_data_manager",
-        "timestamp": str(datetime.datetime.now())
+        "timestamp": str(datetime.datetime.now()),
+        "directory_status": {
+            "course_data_exists": directory_exists,
+            "course_data_writable": directory_writable
+        }
     }
 
 @app.get("/metrics/stats")
@@ -1263,6 +1947,49 @@ async def metrics_stats():
 async def index():
     return {"message": "Course Data Manager API is running"}
 
+# Function to ensure course_data directory exists and is writable
+def ensure_data_directories():
+    """Ensure that the course_data directory exists and is writable"""
+    base_dir = "course_data"
+    print(f"[STARTUP] Checking if base directory exists: {base_dir}")
+    
+    # Check if the directory exists
+    if not os.path.exists(base_dir):
+        try:
+            print(f"[STARTUP] Creating base directory: {base_dir}")
+            os.mkdir(base_dir)
+            print(f"[STARTUP] Successfully created base directory: {base_dir}")
+        except Exception as e:
+            print(f"[STARTUP] ERROR creating base directory: {str(e)}")
+            print("[STARTUP] *** WARNING: Course data directory does not exist and cannot be created! ***")
+            print("[STARTUP] *** The application may not function correctly. ***")
+            return False
+    
+    # Check if the directory is writable
+    test_file_path = os.path.join(base_dir, "write_test.txt")
+    try:
+        with open(test_file_path, "w") as f:
+            f.write("write test")
+        os.remove(test_file_path)
+        print(f"[STARTUP] Base directory {base_dir} is writable")
+        return True
+    except Exception as e:
+        print(f"[STARTUP] ERROR: Base directory {base_dir} is not writable: {str(e)}")
+        print("[STARTUP] *** WARNING: Course data directory is not writable! ***")
+        print("[STARTUP] *** The application may not function correctly. ***")
+        
+        # Try to diagnose permission issues
+        try:
+            import subprocess
+            print("[STARTUP] Checking directory permissions:")
+            subprocess.run(["ls", "-la", base_dir], check=False)
+            print("[STARTUP] Checking current user and group:")
+            subprocess.run(["id"], check=False)
+        except Exception as diagnosis_error:
+            print(f"[STARTUP] Could not diagnose permissions: {str(diagnosis_error)}")
+        
+        return False
+
 if __name__ == "__main__":
     # Print configuration information
     print("=" * 80)
@@ -1272,6 +1999,11 @@ if __name__ == "__main__":
     print(f"- Image Captioning: Enabled")
     print(f"- VLM Caption Endpoint: {os.environ.get('VLM_CAPTION_ENDPOINT')}")
     print("=" * 80)
+    
+    # Check if the course_data directory exists and is writable
+    data_dir_ok = ensure_data_directories()
+    if not data_dir_ok:
+        print("[STARTUP] WARNING: Data directory issues might prevent course downloads")
     
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8012, reload=True)

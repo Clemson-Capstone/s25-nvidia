@@ -35,3 +35,6 @@ ENV/
 
 # Logs
 *.log
+
+# course_data downloaded files
+course_data/*
