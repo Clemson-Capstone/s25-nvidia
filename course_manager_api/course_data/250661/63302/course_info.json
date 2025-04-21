@@ -1,0 +1,202 @@
+{
+    "modules": [
+        {
+            "id": 124717,
+            "name": "Honors Center Guidelines and Expectations",
+            "position": 1,
+            "unlock_at": null,
+            "require_sequential_progress": false,
+            "requirement_type": "all",
+            "publish_final_grade": false,
+            "prerequisite_module_ids": [],
+            "state": "completed",
+            "completed_at": "2025-04-21T18:28:15Z",
+            "items_count": 3,
+            "items_url": "https://clemson.instructure.com/api/v1/courses/63302/modules/124717/items",
+            "items": [
+                {
+                    "id": 798578,
+                    "title": "Honors Center Guidelines",
+                    "position": 1,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 124717,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/798578",
+                    "page_url": "honors-center-guidelines",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/honors-center-guidelines"
+                },
+                {
+                    "id": 798580,
+                    "title": "Honors Coffee Policy",
+                    "position": 3,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "File",
+                    "module_id": 124717,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/798580",
+                    "content_id": 3283872,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/files/3283872"
+                },
+                {
+                    "id": 859526,
+                    "title": "CTG Guidelines.docx",
+                    "position": 4,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "File",
+                    "module_id": 124717,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/859526",
+                    "content_id": 3593937,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/files/3593937"
+                }
+            ]
+        },
+        {
+            "id": 132455,
+            "name": "Student Success Resources",
+            "position": 3,
+            "unlock_at": null,
+            "require_sequential_progress": false,
+            "requirement_type": "all",
+            "publish_final_grade": false,
+            "prerequisite_module_ids": [],
+            "state": "completed",
+            "completed_at": "2025-04-21T18:28:15Z",
+            "items_count": 5,
+            "items_url": "https://clemson.instructure.com/api/v1/courses/63302/modules/132455/items",
+            "items": [
+                {
+                    "id": 846627,
+                    "title": "Life Balance",
+                    "position": 2,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 132455,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/846627",
+                    "page_url": "life-balance",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/life-balance"
+                },
+                {
+                    "id": 846629,
+                    "title": "Self Awareness",
+                    "position": 3,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 132455,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/846629",
+                    "page_url": "self-awareness",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/self-awareness"
+                },
+                {
+                    "id": 846630,
+                    "title": "Study Skills",
+                    "position": 4,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 132455,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/846630",
+                    "page_url": "study-skills",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/study-skills"
+                },
+                {
+                    "id": 846633,
+                    "title": "Clemson University Resources",
+                    "position": 5,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 132455,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/846633",
+                    "page_url": "clemson-university-resources",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/clemson-university-resources"
+                },
+                {
+                    "id": 4741000,
+                    "title": "Honors Handbook 2024-2025",
+                    "position": 6,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "File",
+                    "module_id": 132455,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/4741000",
+                    "content_id": 26192566,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/files/26192566"
+                }
+            ]
+        },
+        {
+            "id": 153956,
+            "name": "TigerPay Reimbursement/Funding System",
+            "position": 5,
+            "unlock_at": null,
+            "require_sequential_progress": false,
+            "requirement_type": "all",
+            "publish_final_grade": false,
+            "prerequisite_module_ids": [],
+            "state": "completed",
+            "completed_at": "2025-04-21T18:28:15Z",
+            "items_count": 1,
+            "items_url": "https://clemson.instructure.com/api/v1/courses/63302/modules/153956/items",
+            "items": [
+                {
+                    "id": 1003703,
+                    "title": "Set-up Instructions",
+                    "position": 1,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 153956,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/1003703",
+                    "page_url": "set-up-instructions",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/set-up-instructions"
+                }
+            ]
+        },
+        {
+            "id": 130489,
+            "name": "Other Opportunities",
+            "position": 6,
+            "unlock_at": null,
+            "require_sequential_progress": false,
+            "requirement_type": "all",
+            "publish_final_grade": false,
+            "prerequisite_module_ids": [],
+            "state": "completed",
+            "completed_at": "2025-04-21T18:28:15Z",
+            "items_count": 1,
+            "items_url": "https://clemson.instructure.com/api/v1/courses/63302/modules/130489/items",
+            "items": [
+                {
+                    "id": 840228,
+                    "title": "Lead for America",
+                    "position": 2,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "Page",
+                    "module_id": 130489,
+                    "html_url": "https://clemson.instructure.com/courses/63302/modules/items/840228",
+                    "page_url": "lead-for-america",
+                    "publish_at": null,
+                    "url": "https://clemson.instructure.com/api/v1/courses/63302/pages/lead-for-america"
+                }
+            ]
+        }
+    ],
+    "files": [],
+    "files_error": "Failed to get files: {\"status\":\"unauthorized\",\"errors\":[{\"message\":\"user not authorized to perform that action\"}]}",
+    "pages": [],
+    "pages_error": "Failed to get pages: {\"message\":\"That page has been disabled for this course\"}",
+    "assignments": [],
+    "quizzes": [],
+    "quizzes_error": "Status code: 404"
+}
