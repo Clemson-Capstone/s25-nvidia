@@ -71,9 +71,7 @@ if (typeof window !== 'undefined') {
 
 export default function ChatPage() {
   // State variables
-  const [messages, setMessages] = useState([
-    { role: "assistant", content: "Hello! I am Dori! A virtual assistant here to help you learn content. How can I assist you today?" }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(true);
