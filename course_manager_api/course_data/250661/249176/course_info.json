@@ -856,7 +856,7 @@
             "prerequisite_module_ids": [],
             "state": "completed",
             "completed_at": "2025-01-15T21:01:30Z",
-            "items_count": 1,
+            "items_count": 2,
             "items_url": "https://clemson.instructure.com/api/v1/courses/249176/modules/629198/items",
             "items": [
                 {
@@ -867,6 +867,18 @@
                     "quiz_lti": false,
                     "type": "SubHeader",
                     "module_id": 629198
+                },
+                {
+                    "id": 4764090,
+                    "title": "Fall_2024_Lecture_Recording_-_AWS_Cloud_Architecting_-_Caching_(Source).mp4",
+                    "position": 2,
+                    "indent": 0,
+                    "quiz_lti": false,
+                    "type": "File",
+                    "module_id": 629198,
+                    "html_url": "https://clemson.instructure.com/courses/249176/modules/items/4764090",
+                    "content_id": 26446758,
+                    "url": "https://clemson.instructure.com/api/v1/courses/249176/files/26446758"
                 }
             ]
         },
@@ -2560,6 +2572,31 @@
             "visibility_level": "inherit"
         },
         {
+            "id": 26446758,
+            "uuid": "S6TIL4LwgP3O00PMfsRz8fUuBLVV8E5OMuOGS2UJ",
+            "folder_id": 2892544,
+            "display_name": "Fall_2024_Lecture_Recording_-_AWS_Cloud_Architecting_-_Caching_(Source).mp4",
+            "filename": "Fall_2024_Lecture_Recording_-_AWS_Cloud_Architecting_-_Caching_%28Source%29.mp4",
+            "upload_status": "success",
+            "content-type": "video/mp4",
+            "url": "https://clemson.instructure.com/files/26446758/download?download_frd=1&verifier=S6TIL4LwgP3O00PMfsRz8fUuBLVV8E5OMuOGS2UJ",
+            "size": 300042199,
+            "created_at": "2025-04-17T00:29:07Z",
+            "updated_at": "2025-04-17T00:30:10Z",
+            "unlock_at": null,
+            "locked": false,
+            "hidden": false,
+            "lock_at": null,
+            "hidden_for_user": false,
+            "thumbnail_url": null,
+            "modified_at": "2025-04-17T00:29:07Z",
+            "mime_class": "video",
+            "media_entry_id": "m-2GeSWLYMjLUt69FsBFDLHdB5eHJsd1Mu",
+            "category": "uncategorized",
+            "locked_for_user": false,
+            "visibility_level": "inherit"
+        },
+        {
             "id": 25058916,
             "uuid": "o8H4FBmWGUXEM3kYTUqaLcbe6TkbWjjscaj9al4Q",
             "folder_id": 2892544,
@@ -3433,31 +3470,6 @@
             "category": "uncategorized",
             "locked_for_user": false,
             "visibility_level": "inherit"
-        },
-        {
-            "id": 25058927,
-            "uuid": "UNTcCrBncA1yJ4uMgBxg5eMvMW1nW2j2yhLSN315",
-            "folder_id": 2892544,
-            "display_name": "Screen Shot 2023-08-18 at 4.41.55 PM.png",
-            "filename": "Screen+Shot+2023-08-18+at+4.41.55+PM.png",
-            "upload_status": "success",
-            "content-type": "image/png",
-            "url": "https://clemson.instructure.com/files/25058927/download?download_frd=1&verifier=UNTcCrBncA1yJ4uMgBxg5eMvMW1nW2j2yhLSN315",
-            "size": 1245170,
-            "created_at": "2024-12-21T18:52:17Z",
-            "updated_at": "2024-12-21T18:52:17Z",
-            "unlock_at": null,
-            "locked": false,
-            "hidden": false,
-            "lock_at": null,
-            "hidden_for_user": false,
-            "thumbnail_url": "https://clemson.instructure.com/images/thumbnails/25058927/UNTcCrBncA1yJ4uMgBxg5eMvMW1nW2j2yhLSN315",
-            "modified_at": "2023-08-18T20:47:25Z",
-            "mime_class": "image",
-            "media_entry_id": null,
-            "category": "uncategorized",
-            "locked_for_user": false,
-            "visibility_level": "inherit"
         }
     ],
     "pages": [
@@ -3481,7 +3493,7 @@
             "html_url": "https://clemson.instructure.com/courses/249176/pages/class-schedule",
             "todo_date": null,
             "publish_at": null,
-            "updated_at": "2025-04-07T12:36:54Z",
+            "updated_at": "2025-04-17T00:35:05Z",
             "locked_for_user": false
         },
         {

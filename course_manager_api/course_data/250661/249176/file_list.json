@@ -448,6 +448,13 @@
         "url": "https://clemson.instructure.com/files/25058929/download?download_frd=1&verifier=S1DvQB6Z0mWK9kzzZbfkAdT5tt0TZvJVIxfwSA5d"
     },
     {
+        "name": "Fall_2024_Lecture_Recording_-_AWS_Cloud_Architecting_-_Caching_(Source).mp4",
+        "path": "course_data/250661/249176/files/Fall_2024_Lecture_Recording_-_AWS_Cloud_Architecting_-_Caching_(Source).mp4",
+        "type": "video/mp4",
+        "size": 300042199,
+        "url": "https://clemson.instructure.com/files/26446758/download?download_frd=1&verifier=S6TIL4LwgP3O00PMfsRz8fUuBLVV8E5OMuOGS2UJ"
+    },
+    {
         "name": "FinalProject-1-1.jpg",
         "path": "course_data/250661/249176/files/FinalProject-1-1.jpg",
         "type": "image/jpeg",
@@ -691,12 +698,5 @@
         "type": "image/png",
         "size": 65663,
         "url": "https://clemson.instructure.com/files/25058926/download?download_frd=1&verifier=EQMzojElPTQa6hwj2awRXeos8do32B2J1pXdnAWm"
-    },
-    {
-        "name": "Screen Shot 2023-08-18 at 4.41.55 PM.png",
-        "path": "course_data/250661/249176/files/Screen Shot 2023-08-18 at 4.41.55 PM.png",
-        "type": "image/png",
-        "size": 1245170,
-        "url": "https://clemson.instructure.com/files/25058927/download?download_frd=1&verifier=UNTcCrBncA1yJ4uMgBxg5eMvMW1nW2j2yhLSN315"
     }
 ]
