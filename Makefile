@@ -176,18 +176,30 @@ frontend-start: frontend-setup
 	cd $(FRONTEND_PATH) && npm run build && npm start
 	@echo "$(GREEN)Frontend application started!$(NC)"
 
+.PHONY: frontend-compose
+frontend-compose:
+	@echo "$(GREEN)Starting frontend container via frontend.yaml...$(NC)"
+	docker compose -f deploy/compose/frontend.yaml up -d --build
+	@echo "$(GREEN)Frontend container started!$(NC)"
 
 # Start the course manager API
 .PHONY: api-start
 api-start:
 	@echo "$(GREEN)Starting the course manager API...$(NC)"
-	cd $(COURSE_API_PATH) && python app.py
+	cd $(COURSE_API_PATH) && python main.py
 	@echo "$(GREEN)Course manager API started!$(NC)"
 
 # Setup and start everything
 .PHONY: all
-all: check_env frontend-setup onprem api-start frontend-start
+all: check_env frontend-setup onprem api-start frontend-start course-manager frontend-compose
 	@echo "$(GREEN)All components have been set up and started!$(NC)"
+
+# Start the course manager microservice
+.PHONY: course-manager
+course-manager:
+	@echo "$(GREEN)Starting course manager API via course-manager.yaml...$(NC)"
+	docker compose -f ./deploy/compose/course-manager.yaml up -d
+	@echo "$(GREEN)Course manager started!$(NC)"
 
 # Stop all running containers
 .PHONY: stop
