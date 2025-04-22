@@ -25,6 +25,7 @@ import CanvasIntegration from '@/components/CanvasIntegration';
 import ChatSettings from '@/components/ChatSettings';
 import ChatInterface from '@/components/ChatInterface';
 import KnowledgeBase from '@/components/KnowledgeBase';
+import Footer from '@/components/Footer';
 
 // TTS functionality removed as it's not working reliably across browsers
 
@@ -1264,6 +1265,7 @@ export default function ChatPage() {
           </TabsContent>
         </Tabs>
       </div>
+      <Footer/>
     </div>
   );
 }
