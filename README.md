@@ -150,7 +150,7 @@ export NIM_ENDPOINT_URL=https://integrate.api.nvidia.com/v1
 Run the `make` command to start the Guardrails service:
 
 ```bash
-make guardrails-build
+docker compose -f deploy/compose/docker-compose-nemo-guardrails.yaml up -d --no-deps nemo-guardrails-microservice
 ```
 
 If the container doesn't start automatically or starts and then fails, manually restart it a few times.  
