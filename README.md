@@ -104,6 +104,7 @@ cd nvidia-rag-2.0
    export YOLOX_GRAPHIC_ELEMENTS_INFER_PROTOCOL="http"
    export YOLOX_TABLE_STRUCTURE_HTTP_ENDPOINT="https://ai.api.nvidia.com/v1/cv/nvidia/nemoretriever-table-structure-v1"
    export YOLOX_TABLE_STRUCTURE_INFER_PROTOCOL="http"
+   export ENABLE_GUARDRAILS=true
    ```
 
    **Tip**: If you plan to switch to on-prem models after trying out the NVIDIA hosted models, make sure the above environment variables are `unset` before trying out the pipeline.
