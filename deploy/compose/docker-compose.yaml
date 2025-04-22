@@ -1,7 +1,18 @@
+# Bundles all the components required for the application
 include:
   - path: ./frontend.yaml
   - path: ./course-manager.yaml
   - path: ./prometheus-compose.yaml
+  - path: ../../nvidia-rag-2.0/deploy/compose/vectordb.yaml
+  - path: ../../nvidia-rag-2.0/deploy/compose/docker-compose-ingestor-server.yaml
+  - path: ../../nvidia-rag-2.0/deploy/compose/docker-compose-rag-server.yaml
+
+  # use this for hosted models with guardrails
+  - path: ../../nvidia-rag-2.0/deploy/compose/docker-compose-nemo-guardrails-cloud.yaml
+
+  # use this for on-prem models with guardrails
+  # - path: ../../nvidia-rag-2.0/deploy/compose/docker-compose-nemo-guardrails.yaml
+
 
 networks:
   default:

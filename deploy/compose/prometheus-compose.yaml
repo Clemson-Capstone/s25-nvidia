@@ -1,0 +1,20 @@
+services:
+  prometheus:
+    build:
+      context: ../../prometheus
+      dockerfile: Dockerfile
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    container_name: prometheus-server
+    volumes:
+      # Mount the prometheus.yml file directly from the host
+      - ../../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    environment:
+      - TZ=UTC
+
+# Define the volume for persistent data storage
+volumes:
+  prometheus_data:
+    driver: local
