@@ -11,3 +11,7 @@ services:
       - ../../course_manager_api:/app
     environment:
       - PYTHONUNBUFFERED=1
+
+networks:
+  default:
+    name: nvidia-rag

@@ -1,0 +1,13 @@
+# Purpose
+This document is a summary of the changes made to the NVIDIA RAG repo(found [here](https://github.com/NVIDIA-AI-Blueprints/rag)), which a copy of is stored in `nvidia-rag-2.0`. Ideally, in the future the rag repo will be updated to fix the issues we faced, and can be directly included as a submodule to this repo.
+
+At the time of writing(April 22nd, 2025), the NVIDIA RAG repo is at commit [c51ff5be36b755fe21a98a2a5155f9b943bf9d93](https://github.com/NVIDIA-AI-Blueprints/rag/tree/c51ff5be36b755fe21a98a2a5155f9b943bf9d93). Using any type of diffchecker from this commit will let you see changes we made.
+
+# Changes & The reason
+Most changes are related to the guardrails functionality, which gave us some trouble to get working. Adding the feature for personas also required some changes to `chains.py`.
+
+- **Personas:** For Personas, we passed the persona through the generate post request, which meant `nvidia-rag-2.0/src/server.py` had modification to the `generate_answer` function at line 837. Line 256 of this file is also modifed to add persona to the data structure of the request. Then, in `nvidia-rag-2.0/src/chains.py`, the `llm_chain` function, `rag_chain` function, and `rag_chain_with_multiturn` function are modified to inject the persona into the system prompt. A good rule of thumb is to ctrl+f for the string "persona" to find all the places where persona is used within src to understand all changes.
+
+- **Guardrails:** For basic guardrail functionality, no changes were needed. However, when the knowledge base was used, the guardrails were unable to access the knowledge base for its reply in python actions. We then realized that the guardrails also were not recieving the system prompt. They would only recieve the user prompt. So, in the `nvidia-rag-2.0/src/chains.py` file, we modified the `rag_chain_with_multiturn` to inject the relevant knowledge base chunks into the user prompt, so the guardrails could see them. We also tried injecting the persona into the user prompt, and while it worked, it would mess up the guardrails ability to understand what the user's intent was, which is critical for guardrail accuracy. 
+
+If the system prompt and knowledge base chunks were able to go into the guardrails automatically, then personas would be the only change, and it may be possible to make the persona system prompts external. So in a future version of the rag repo, if these issues are resolved it would be recommended to replace the `nvidia-rag-2.0` folder with a linked submodule to the official NVIDIA RAG repo. This would allow for easier updates and leave less code to maintain for this project.

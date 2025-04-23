@@ -18,3 +18,7 @@ services:
 volumes:
   prometheus_data:
     driver: local
+
+networks:
+  default:
+    name: nvidia-rag

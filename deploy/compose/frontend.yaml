@@ -10,3 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+
+networks:
+  default:
+    name: nvidia-rag
