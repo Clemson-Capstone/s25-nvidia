@@ -87,6 +87,9 @@ Use one of the following methods to generate an API key:
 
    You should be good to go! Visit [localhost:3000](http://localhost:3000) with your browser to use the frontend with the canvas integration and chatbot. Alternatively, you can go to [localhost:8090](http://localhost:8090) to use the RAG Playground and chat without the canvas integration to play around.
 
+### Next Steps
+To learn more about how to get a canvas token to paste in, please refer to this [guide](https://community.canvaslms.com/t5/Canvas-Basics-Guide/How-do-I-manage-API-access-tokens-in-my-user-account/ta-p/615312).
+
 # Running Containers Separately
 While developing, you may only be making changes to one component of this project. For example, if you are only modifying the course manager API, you may want to only rebuild that one container and leave everything else running.
 
